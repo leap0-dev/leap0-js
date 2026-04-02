@@ -25,27 +25,27 @@ export type RegistryCredentialType = z.infer<typeof registryCredentialTypeSchema
 
 export const basicRegistryCredentialsSchema = z.object({
   type: z.literal(RegistryCredentialType.BASIC),
-  username: z.string(),
-  password: z.string(),
+  username: z.string().min(1),
+  password: z.string().min(1),
 })
 
 export const awsRegistryCredentialsSchema = z.object({
   type: z.literal(RegistryCredentialType.AWS),
-  aws_access_key_id: z.string(),
-  aws_secret_access_key: z.string(),
+  aws_access_key_id: z.string().min(1),
+  aws_secret_access_key: z.string().min(1),
   aws_region: z.string().optional(),
 })
 
 export const gcpRegistryCredentialsSchema = z.object({
   type: z.literal(RegistryCredentialType.GCP),
-  gcp_service_account_json: z.string(),
+  gcp_service_account_json: z.string().min(1),
 })
 
 export const azureRegistryCredentialsSchema = z.object({
   type: z.literal(RegistryCredentialType.AZURE),
-  azure_client_id: z.string(),
-  azure_client_secret: z.string(),
-  azure_tenant_id: z.string(),
+  azure_client_id: z.string().min(1),
+  azure_client_secret: z.string().min(1),
+  azure_tenant_id: z.string().min(1),
 })
 
 export const registryCredentialsSchema = z.discriminatedUnion("type", [

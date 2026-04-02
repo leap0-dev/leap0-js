@@ -62,9 +62,9 @@ export type SandboxData = z.infer<typeof sandboxDataSchema>
 
 export const createSandboxParamsSchema = z.object({
   templateName: z.string().optional(),
-  vcpu: z.number().int().optional(),
-  memoryMib: z.number().int().optional(),
-  timeoutMin: z.number().int().optional(),
+  vcpu: z.number().int().positive().optional(),
+  memoryMib: z.number().int().positive().optional(),
+  timeoutMin: z.number().int().positive().optional(),
   autoPause: z.boolean().optional(),
   otelExport: z.boolean().optional(),
   telemetry: z.boolean().optional(),

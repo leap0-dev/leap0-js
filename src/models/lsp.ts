@@ -13,9 +13,11 @@ export const lspJsonRpcErrorSchema = z.object({
 export type LspJsonRpcError = z.infer<typeof lspJsonRpcErrorSchema>
 
 export const lspJsonRpcResponseSchema = z.object({
-  jsonrpc: z.string(),
+  jsonrpc: z.literal("2.0"),
   id: z.union([z.string(), z.number(), z.null()]),
   result: z.unknown().optional(),
   error: lspJsonRpcErrorSchema.optional(),
+}).refine((value) => (value.result === undefined) !== (value.error === undefined), {
+  message: "Exactly one of result or error must be present",
 })
 export type LspJsonRpcResponse<T = unknown> = Omit<z.infer<typeof lspJsonRpcResponseSchema>, "result"> & { result?: T }

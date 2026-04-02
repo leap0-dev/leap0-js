@@ -23,17 +23,14 @@ export const searchMatchSchema = z.object({
 }).catchall(z.unknown())
 export type SearchMatch = z.infer<typeof searchMatchSchema>
 
-export const treeEntrySchema: z.ZodType<{
+export type TreeEntry = {
   path: string
   name: string
   type: "file" | "dir"
-  children?: Array<{
-    path: string
-    name: string
-    type: "file" | "dir"
-    children?: unknown
-  }>
-}> = z.lazy(() =>
+  children?: TreeEntry[]
+}
+
+export const treeEntrySchema: z.ZodType<TreeEntry> = z.lazy(() =>
   z.object({
     path: z.string(),
     name: z.string(),
@@ -41,7 +38,6 @@ export const treeEntrySchema: z.ZodType<{
     children: z.array(treeEntrySchema).optional(),
   }),
 )
-export type TreeEntry = z.infer<typeof treeEntrySchema>
 
 export const treeResultSchema = z.object({
   root: z.string(),

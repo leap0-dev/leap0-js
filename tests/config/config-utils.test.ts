@@ -1,8 +1,33 @@
 import assert from "node:assert/strict"
-import { test } from "vitest"
+import { afterEach, beforeEach, test } from "vitest"
 
 import { resolveConfig } from "@/config/index.js"
 import { ensureLeadingSlash, sandboxBaseUrl, sandboxIdOf, snapshotIdOf, templateIdOf, toFileUri, trimSlash, websocketUrlFromHttp, withQuery } from "@/core/utils.js"
+
+const ENV_KEYS = [
+  "LEAP0_API_KEY",
+  "LEAP0_BASE_URL",
+  "LEAP0_SANDBOX_DOMAIN",
+  "LEAP0_SDK_OTEL_ENABLED",
+  "OTEL_EXPORTER_OTLP_ENDPOINT",
+] as const
+
+let envSnapshot: Partial<Record<(typeof ENV_KEYS)[number], string | undefined>> = {}
+
+beforeEach(() => {
+  envSnapshot = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]))
+})
+
+afterEach(() => {
+  for (const key of ENV_KEYS) {
+    const value = envSnapshot[key]
+    if (value === undefined) {
+      delete process.env[key]
+    } else {
+      process.env[key] = value
+    }
+  }
+})
 
 test("resolveConfig trims values and reads env defaults", () => {
   process.env.LEAP0_API_KEY = " env-key "

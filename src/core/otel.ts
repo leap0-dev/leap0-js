@@ -11,14 +11,8 @@ import type { Leap0ConfigResolved } from "@/models/config.js"
 import { SDK_VERSION } from "@/core/version.js"
 
 const TRACER_NAME = "leap0-js-sdk"
-
-function isDefaultTracerProvider(provider: object): boolean {
-  return provider.constructor.name === "ProxyTracerProvider"
-}
-
-function isDefaultMeterProvider(provider: object): boolean {
-  return provider.constructor.name === "NoopMeterProvider"
-}
+let tracerProviderInitialized = false
+let meterProviderInitialized = false
 
 /**
  * Returns the shared OpenTelemetry tracer for the SDK.
@@ -42,20 +36,20 @@ export function initOtel(_config: Leap0ConfigResolved): void {
     [ATTR_SERVICE_VERSION]: SDK_VERSION,
   })
 
-  const currentTracerProvider = trace.getTracerProvider()
-  if (isDefaultTracerProvider(currentTracerProvider)) {
+  if (!tracerProviderInitialized) {
     const tracerProvider = new NodeTracerProvider({
       resource,
       spanProcessors: [new BatchSpanProcessor(new OTLPTraceExporter())],
     })
     trace.setGlobalTracerProvider(tracerProvider)
+    tracerProviderInitialized = true
   }
 
-  const currentMeterProvider = metrics.getMeterProvider()
-  if (isDefaultMeterProvider(currentMeterProvider)) {
+  if (!meterProviderInitialized) {
     const metricReader = new PeriodicExportingMetricReader({ exporter: new OTLPMetricExporter() })
     const meterProvider = new MeterProvider({ resource, readers: [metricReader] })
     metrics.setGlobalMeterProvider(meterProvider)
+    meterProviderInitialized = true
   }
 }
 
