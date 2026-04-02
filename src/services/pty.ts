@@ -1,0 +1,68 @@
+import { Leap0WebSocketError } from "@/core/errors.js"
+import type { CreatePtySessionParams, PtySession, RequestOptions, SandboxRef } from "@/models/index.js"
+import { Leap0Transport, jsonBody } from "@/core/transport.js"
+import { sandboxBaseUrl, sandboxIdOf, websocketUrlFromHttp } from "@/core/utils.js"
+
+/** Thin wrapper around an interactive PTY websocket connection. */
+export class PtyConnection {
+  constructor(private readonly socket: WebSocket) {}
+
+  send(data: string | ArrayBufferLike | Blob | ArrayBufferView): void {
+    this.socket.send(data)
+  }
+
+  recv(): Promise<Uint8Array> {
+    return new Promise((resolve, reject) => {
+      this.socket.addEventListener("message", (event) => {
+        const value = event.data
+        if (typeof value === "string") {
+          resolve(new TextEncoder().encode(value))
+          return
+        }
+        if (value instanceof Blob) {
+          value.arrayBuffer().then((buffer) => resolve(new Uint8Array(buffer))).catch(reject)
+          return
+        }
+        resolve(new Uint8Array(value))
+      }, { once: true })
+      this.socket.addEventListener("error", () => reject(new Leap0WebSocketError("PTY websocket error")), { once: true })
+    })
+  }
+
+  close(): void {
+    this.socket.close()
+  }
+}
+
+/** Creates and manages PTY sessions for interactive terminals. */
+export class PtyClient {
+  constructor(private readonly transport: Leap0Transport, private readonly sandboxDomain: string) {}
+
+  list(sandbox: SandboxRef, options: RequestOptions = {}): Promise<PtySession[]> {
+    return this.transport.requestJson(`/v1/sandbox/${sandboxIdOf(sandbox)}/pty`, { method: "GET" }, options)
+  }
+
+  create(sandbox: SandboxRef, params: CreatePtySessionParams = {}, options: RequestOptions = {}): Promise<PtySession> {
+    return this.transport.requestJson(`/v1/sandbox/${sandboxIdOf(sandbox)}/pty`, { method: "POST", body: jsonBody({ ...params, id: params.id }) }, options)
+  }
+
+  get(sandbox: SandboxRef, sessionId: string, options: RequestOptions = {}): Promise<PtySession> {
+    return this.transport.requestJson(`/v1/sandbox/${sandboxIdOf(sandbox)}/pty/${encodeURIComponent(sessionId)}`, { method: "GET" }, options)
+  }
+
+  async delete(sandbox: SandboxRef, sessionId: string, options: RequestOptions = {}): Promise<void> {
+    await this.transport.request(`/v1/sandbox/${sandboxIdOf(sandbox)}/pty/${encodeURIComponent(sessionId)}`, { method: "DELETE" }, options)
+  }
+
+  async resize(sandbox: SandboxRef, sessionId: string, cols: number, rows: number, options: RequestOptions = {}): Promise<void> {
+    await this.transport.request(`/v1/sandbox/${sandboxIdOf(sandbox)}/pty/${encodeURIComponent(sessionId)}/resize`, { method: "POST", body: jsonBody({ cols, rows }) }, options)
+  }
+
+  websocketUrl(sandbox: SandboxRef, sessionId: string): string {
+    return websocketUrlFromHttp(`${sandboxBaseUrl(sandboxIdOf(sandbox), this.sandboxDomain)}/v1/sandbox/${sandboxIdOf(sandbox)}/pty/${encodeURIComponent(sessionId)}/connect`)
+  }
+
+  connect(sandbox: SandboxRef, sessionId: string): PtyConnection {
+    return new PtyConnection(new WebSocket(this.websocketUrl(sandbox, sessionId)))
+  }
+}
