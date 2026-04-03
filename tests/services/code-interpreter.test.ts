@@ -25,6 +25,8 @@ test("code interpreter client sends expected request shapes", async () => {
   await client.getContext("sb-1", "ctx-1");
   await client.deleteContext("sb-1", "ctx-1");
   await client.execute("sb-1", { code: "print(1)", language: "python", contextId: "ctx-1" });
+  const healthResult = await client.health("sb-1");
+  assert.equal(typeof healthResult, "boolean");
   assert.equal(calls[0]?.url, "https://sb-1.sandbox.example.com/healthz");
   assert.equal(calls[1]?.url, "https://sb-1.sandbox.example.com/contexts");
   assert.deepEqual(jsonOf(calls[1]!), { language: "python" });

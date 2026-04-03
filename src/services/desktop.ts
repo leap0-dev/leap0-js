@@ -48,8 +48,8 @@ export class DesktopClient {
     return `${sandboxBaseUrl(sandboxIdOf(sandbox), this.transport.sandboxDomain)}${path}`;
   }
 
-  browserUrl(sandbox: SandboxRef): string {
-    return sandboxBaseUrl(sandboxIdOf(sandbox), this.transport.sandboxDomain);
+  desktopUrl(sandbox: SandboxRef): string {
+    return `${sandboxBaseUrl(sandboxIdOf(sandbox), this.transport.sandboxDomain)}/`;
   }
 
   private async requestJson<T>(
@@ -65,7 +65,7 @@ export class DesktopClient {
     );
   }
 
-  async display(sandbox: SandboxRef, options?: RequestOptions): Promise<DesktopDisplayInfo> {
+  async displayInfo(sandbox: SandboxRef, options?: RequestOptions): Promise<DesktopDisplayInfo> {
     return this.requestJson(
       sandbox,
       desktopDisplayInfoSchema,
@@ -83,7 +83,7 @@ export class DesktopClient {
       options,
     );
   }
-  async setScreen(
+  async resizeScreen(
     sandbox: SandboxRef,
     payload: DesktopSetScreenParams,
     options?: RequestOptions,
@@ -201,26 +201,29 @@ export class DesktopClient {
       options,
     );
   }
-  async typeText(sandbox: SandboxRef, text: string, options?: RequestOptions): Promise<void> {
-    await this.transport.requestJsonUrl(
+  async typeText(sandbox: SandboxRef, text: string, options?: RequestOptions): Promise<boolean> {
+    const data = (await this.transport.requestJsonUrl(
       this.requestUrl(sandbox, "/api/input/type"),
       { method: "POST", body: jsonBody({ text }) },
       options,
-    );
+    )) as Record<string, unknown> | undefined;
+    return Boolean(data?.ok);
   }
-  async press(sandbox: SandboxRef, key: string, options?: RequestOptions): Promise<void> {
-    await this.transport.requestJsonUrl(
+  async pressKey(sandbox: SandboxRef, key: string, options?: RequestOptions): Promise<boolean> {
+    const data = (await this.transport.requestJsonUrl(
       this.requestUrl(sandbox, "/api/input/press"),
       { method: "POST", body: jsonBody({ key }) },
       options,
-    );
+    )) as Record<string, unknown> | undefined;
+    return Boolean(data?.ok);
   }
-  async hotkey(sandbox: SandboxRef, keys: string[], options?: RequestOptions): Promise<void> {
-    await this.transport.requestJsonUrl(
+  async hotkey(sandbox: SandboxRef, keys: string[], options?: RequestOptions): Promise<boolean> {
+    const data = (await this.transport.requestJsonUrl(
       this.requestUrl(sandbox, "/api/input/hotkey"),
       { method: "POST", body: jsonBody({ keys }) },
       options,
-    );
+    )) as Record<string, unknown> | undefined;
+    return Boolean(data?.ok);
   }
   async recordingStatus(
     sandbox: SandboxRef,
@@ -270,7 +273,7 @@ export class DesktopClient {
       options,
     ).then((r) => r.items);
   }
-  async recording(
+  async getRecording(
     sandbox: SandboxRef,
     id: string,
     options?: RequestOptions,
@@ -307,10 +310,10 @@ export class DesktopClient {
       desktopHealthSchema,
       "/api/healthz",
       { method: "GET" },
-      options,
+      { ...options, expectedStatus: [200, 503] },
     );
   }
-  async status(sandbox: SandboxRef, options?: RequestOptions): Promise<DesktopProcessStatusList> {
+  async processStatus(sandbox: SandboxRef, options?: RequestOptions): Promise<DesktopProcessStatusList> {
     return this.requestJson(
       sandbox,
       desktopProcessStatusListSchema,
@@ -319,7 +322,7 @@ export class DesktopClient {
       options,
     );
   }
-  async processStatus(
+  async getProcess(
     sandbox: SandboxRef,
     name: string,
     options?: RequestOptions,
@@ -384,28 +387,41 @@ export class DesktopClient {
       if (!event || typeof event !== "object") {
         throw new Leap0Error("Malformed desktop status stream event");
       }
-      if (typeof asRecord(event).message === "string") {
-        throw new Leap0Error(String(asRecord(event).message));
+      const record = asRecord(event);
+      if (record.error !== undefined) {
+        throw new Leap0Error("Desktop status stream error", { body: String(record.error) });
+      }
+      if (typeof record.message === "string") {
+        throw new Leap0Error(String(record.message));
       }
       yield normalize(desktopProcessStatusListSchema, event);
     }
   }
 
   async waitUntilReady(sandbox: SandboxRef, timeout = 60): Promise<void> {
-    const startedAt = Date.now();
-    let delayMs = 250;
-    while (true) {
-      const elapsedSec = (Date.now() - startedAt) / 1000;
-      if (elapsedSec >= timeout) {
-        throw new Leap0Error("Desktop did not become ready within timeout");
+    const deadline = Date.now() + timeout * 1000;
+    let lastError: unknown;
+
+    while (Date.now() < deadline) {
+      try {
+        const remaining = Math.max(1, Math.ceil((deadline - Date.now()) / 1000));
+        for await (const status of this.statusStream(sandbox, { timeout: remaining })) {
+          if (status.status === "running") {
+            return;
+          }
+        }
+        // Stream ended without reaching running, retry
+      } catch (error) {
+        lastError = error;
+        if (error instanceof Leap0Error && !error.retryable) throw error;
+        // Transient error, retry with backoff
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) break;
+        await new Promise((resolve) => setTimeout(resolve, Math.min(500, remaining)));
       }
-      const remaining = Math.max(1, Math.ceil(timeout - elapsedSec));
-      const status = await this.status(sandbox, { timeout: remaining });
-      if ((status.items ?? []).every((process) => process.running === true)) {
-        return;
-      }
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-      delayMs = Math.min(delayMs * 2, 2000);
     }
+    throw new Leap0Error(
+      `Desktop did not become ready within ${timeout}s${lastError instanceof Error ? `: ${lastError.message}` : ""}`,
+    );
   }
 }

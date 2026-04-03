@@ -6,12 +6,12 @@ async function main(): Promise<void> {
   const client = new Leap0Client();
 
   try {
-    const sandbox = await client.createSandbox({ templateName: DEFAULT_DESKTOP_TEMPLATE_NAME });
+    const sandbox = await client.sandboxes.create({ templateName: DEFAULT_DESKTOP_TEMPLATE_NAME });
     try {
       await sandbox.desktop.waitUntilReady(60);
-      console.log("Desktop:", sandbox.desktop.browserUrl());
+      console.log("Desktop:", sandbox.desktop.desktopUrl());
 
-      const display = await sandbox.desktop.display();
+      const display = await sandbox.desktop.displayInfo();
       console.log("Display:", display);
 
       await sandbox.desktop.movePointer(

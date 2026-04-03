@@ -14,9 +14,18 @@ import { Leap0Transport, jsonBody } from "@/core/transport.js";
 import { sandboxIdOf, snapshotIdOf } from "@/core/utils.js";
 import { withErrorPrefix } from "@/services/shared.js";
 
+import type { SandboxFactory } from "@/services/sandboxes.js";
+
 /** Creates, restores, and deletes named snapshots. */
-export class SnapshotsClient {
-  constructor(private readonly transport: Leap0Transport) {}
+export class SnapshotsClient<T = SandboxData> {
+  constructor(
+    private readonly transport: Leap0Transport,
+    private readonly sandboxFactory?: SandboxFactory<T>,
+  ) {}
+
+  private wrap(data: SandboxData): T {
+    return (this.sandboxFactory ? this.sandboxFactory(data) : data) as T;
+  }
 
   /** Creates a snapshot from a running sandbox. */
   async create(
@@ -51,7 +60,7 @@ export class SnapshotsClient {
   }
 
   /** Restores a sandbox from a snapshot. */
-  async resume(params: ResumeSnapshotParams, options: RequestOptions = {}): Promise<SandboxData> {
+  async resume(params: ResumeSnapshotParams, options: RequestOptions = {}): Promise<T> {
     return withErrorPrefix("Failed to resume snapshot: ", async () => {
       const data = await this.transport.requestJson<unknown>(
         "/v1/snapshot/resume",
@@ -66,7 +75,7 @@ export class SnapshotsClient {
         },
         options,
       );
-      return normalize(sandboxDataSchema, data);
+      return this.wrap(normalize(sandboxDataSchema, data));
     });
   }
 

@@ -22,19 +22,34 @@ import {
 } from "@/models/filesystem.js";
 import { sandboxIdOf } from "@/core/utils.js";
 
+type JsonObject = Record<string, unknown>;
+
+function compact(obj: JsonObject): JsonObject {
+  const result: JsonObject = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) result[key] = value;
+  }
+  return result;
+}
+
 /** Performs filesystem operations inside a sandbox. */
 export class FilesystemClient {
   constructor(private readonly transport: Leap0Transport) {}
 
+  private fsPath(sandbox: SandboxRef, endpoint: string): string {
+    return `/v1/sandbox/${sandboxIdOf(sandbox)}/filesystem/${endpoint}`;
+  }
+
   /** Lists directory contents. */
   async ls(
     sandbox: SandboxRef,
-    path = "/workspace",
+    path: string,
+    params: { recursive?: boolean; exclude?: string[] } = {},
     options: RequestOptions = {},
   ): Promise<LsResult> {
     const data = await this.transport.requestJson<LsResult>(
-      `/v1/sandbox/${sandboxIdOf(sandbox)}/filesystem/ls`,
-      { method: "POST", body: jsonBody({ path }) },
+      this.fsPath(sandbox, "ls"),
+      { method: "POST", body: jsonBody(compact({ path, recursive: params.recursive, exclude: params.exclude })) },
       options,
     );
     return normalize(lsResultSchema, data);
@@ -43,60 +58,111 @@ export class FilesystemClient {
   /** Fetches metadata for a path. */
   async stat(sandbox: SandboxRef, path: string, options: RequestOptions = {}): Promise<FileInfo> {
     const data = await this.transport.requestJson<FileInfo>(
-      `/v1/sandbox/${sandboxIdOf(sandbox)}/filesystem/stat`,
+      this.fsPath(sandbox, "stat"),
       { method: "POST", body: jsonBody({ path }) },
       options,
     );
     return normalize(fileInfoSchema, data);
   }
 
+  /** Creates a directory. Set recursive to create parent directories. */
   async mkdir(
     sandbox: SandboxRef,
     path: string,
-    recursive = false,
+    params: { recursive?: boolean; permissions?: string } = {},
     options: RequestOptions = {},
   ): Promise<void> {
     await this.transport.request(
-      `/v1/sandbox/${sandboxIdOf(sandbox)}/filesystem/mkdir`,
-      { method: "POST", body: jsonBody({ path, recursive }) },
+      this.fsPath(sandbox, "mkdir"),
+      { method: "POST", body: jsonBody(compact({ path, recursive: params.recursive, permissions: params.permissions })) },
       options,
     );
   }
 
-  async writeFile(
-    sandbox: SandboxRef,
-    path: string,
-    content: string,
-    options: RequestOptions = {},
-  ): Promise<void> {
-    await this.transport.request(
-      `/v1/sandbox/${sandboxIdOf(sandbox)}/filesystem/write-file`,
-      {
-        method: "POST",
-        headers: { "content-type": "text/plain" },
-        body: content,
-      },
-      { ...options, query: { path } },
-    );
-  }
-
+  /** Writes raw bytes to a single file path. */
   async writeBytes(
     sandbox: SandboxRef,
     path: string,
     content: Uint8Array,
+    params: { permissions?: string } = {},
     options: RequestOptions = {},
   ): Promise<void> {
+    const query: Record<string, string> = { path };
+    if (params.permissions) query.permissions = params.permissions;
     await this.transport.request(
-      `/v1/sandbox/${sandboxIdOf(sandbox)}/filesystem/write-file`,
+      this.fsPath(sandbox, "write-file"),
       {
         method: "POST",
         headers: { "content-type": "application/octet-stream" },
         body: Buffer.from(content),
       },
-      { ...options, query: { path } },
+      { ...options, query },
     );
   }
 
+  /** Writes text to a single file path. */
+  async writeFile(
+    sandbox: SandboxRef,
+    path: string,
+    content: string,
+    params: { permissions?: string } = {},
+    options: RequestOptions = {},
+  ): Promise<void> {
+    await this.writeBytes(
+      sandbox,
+      path,
+      new TextEncoder().encode(content),
+      params,
+      options,
+    );
+  }
+
+  /** Writes multiple files in a single request using multipart upload. */
+  async writeFilesBytes(
+    sandbox: SandboxRef,
+    files: Record<string, Uint8Array>,
+    options: RequestOptions = {},
+  ): Promise<void> {
+    const form = new FormData();
+    for (const [filePath, data] of Object.entries(files)) {
+      form.append(filePath, new Blob([data as BlobPart]));
+    }
+    await this.transport.request(
+      this.fsPath(sandbox, "write-files"),
+      { method: "POST", body: form },
+      options,
+    );
+  }
+
+  /** Writes multiple text files in a single request. */
+  async writeFiles(
+    sandbox: SandboxRef,
+    files: Record<string, string>,
+    options: RequestOptions = {},
+  ): Promise<void> {
+    const bytesFiles: Record<string, Uint8Array> = {};
+    const encoder = new TextEncoder();
+    for (const [filePath, content] of Object.entries(files)) {
+      bytesFiles[filePath] = encoder.encode(content);
+    }
+    await this.writeFilesBytes(sandbox, bytesFiles, options);
+  }
+
+  /** Reads a single file and returns its raw bytes. */
+  async readBytes(
+    sandbox: SandboxRef,
+    path: string,
+    params: { offset?: number; limit?: number; head?: number; tail?: number } = {},
+    options: RequestOptions = {},
+  ): Promise<Uint8Array> {
+    return await this.transport.requestBytes(
+      this.fsPath(sandbox, "read-file"),
+      { method: "POST", body: jsonBody(compact({ path, ...params })) },
+      options,
+    );
+  }
+
+  /** Reads a single file and returns its content decoded as text. */
   async readFile(
     sandbox: SandboxRef,
     path: string,
@@ -104,24 +170,50 @@ export class FilesystemClient {
     options: RequestOptions = {},
   ): Promise<string> {
     return await this.transport.requestText(
-      `/v1/sandbox/${sandboxIdOf(sandbox)}/filesystem/read-file`,
-      { method: "POST", body: jsonBody({ path, ...params }) },
+      this.fsPath(sandbox, "read-file"),
+      { method: "POST", body: jsonBody(compact({ path, ...params })) },
       options,
     );
   }
 
-  async readBytes(
+  /** Reads multiple files and returns raw bytes keyed by path. */
+  async readFilesBytes(
     sandbox: SandboxRef,
-    path: string,
+    paths: string[],
     options: RequestOptions = {},
-  ): Promise<Uint8Array> {
-    return await this.transport.requestBytes(
-      `/v1/sandbox/${sandboxIdOf(sandbox)}/filesystem/read-file`,
-      { method: "POST", body: jsonBody({ path }) },
+  ): Promise<Record<string, Uint8Array>> {
+    const response = await this.transport.request(
+      this.fsPath(sandbox, "read-files"),
+      { method: "POST", body: jsonBody({ paths }) },
       options,
     );
+    // Server returns multipart/form-data, parse it
+    const formData = await response.formData();
+    const result: Record<string, Uint8Array> = {};
+    for (const [name, value] of formData.entries()) {
+      if (value instanceof Blob) {
+        result[name] = new Uint8Array(await value.arrayBuffer());
+      }
+    }
+    return result;
   }
 
+  /** Reads multiple files and returns decoded text keyed by path. */
+  async readFiles(
+    sandbox: SandboxRef,
+    paths: string[],
+    options: RequestOptions = {},
+  ): Promise<Record<string, string>> {
+    const bytesResult = await this.readFilesBytes(sandbox, paths, options);
+    const decoder = new TextDecoder();
+    const result: Record<string, string> = {};
+    for (const [filePath, bytes] of Object.entries(bytesResult)) {
+      result[filePath] = decoder.decode(bytes);
+    }
+    return result;
+  }
+
+  /** Deletes a file or directory. Set recursive for non-empty directories. */
   async delete(
     sandbox: SandboxRef,
     path: string,
@@ -129,83 +221,87 @@ export class FilesystemClient {
     options: RequestOptions = {},
   ): Promise<void> {
     await this.transport.request(
-      `/v1/sandbox/${sandboxIdOf(sandbox)}/filesystem/delete`,
+      this.fsPath(sandbox, "delete"),
       { method: "POST", body: jsonBody({ path, recursive }) },
       options,
     );
   }
 
+  /** Sets file mode and optionally changes owner and group. */
   async setPermissions(
     sandbox: SandboxRef,
     path: string,
-    mode: string,
+    params: { mode?: string; owner?: string; group?: string } = {},
     options: RequestOptions = {},
   ): Promise<void> {
     await this.transport.request(
-      `/v1/sandbox/${sandboxIdOf(sandbox)}/filesystem/set-permissions`,
-      { method: "POST", body: jsonBody({ path, mode }) },
+      this.fsPath(sandbox, "set-permissions"),
+      { method: "POST", body: jsonBody(compact({ path, mode: params.mode, owner: params.owner, group: params.group })) },
       options,
     );
   }
 
+  /** Finds file paths matching a glob pattern. */
   async glob(
     sandbox: SandboxRef,
     path: string,
     pattern: string,
+    params: { exclude?: string[] } = {},
     options: RequestOptions = {},
   ): Promise<string[]> {
     const data = await this.transport.requestJson(
-      `/v1/sandbox/${sandboxIdOf(sandbox)}/filesystem/glob`,
-      { method: "POST", body: jsonBody({ path, pattern }) },
+      this.fsPath(sandbox, "glob"),
+      { method: "POST", body: jsonBody(compact({ path, pattern, exclude: params.exclude })) },
       options,
     );
     return z.object({ items: z.array(z.string()) }).parse(data).items;
   }
 
+  /** Searches for a text pattern across files in a directory. */
   async grep(
     sandbox: SandboxRef,
     path: string,
     pattern: string,
-    include?: string,
+    params: { include?: string; exclude?: string[] } = {},
     options: RequestOptions = {},
   ): Promise<SearchMatch[]> {
     const data = await this.transport.requestJson<SearchMatch[]>(
-      `/v1/sandbox/${sandboxIdOf(sandbox)}/filesystem/grep`,
-      { method: "POST", body: jsonBody({ path, pattern, include }) },
+      this.fsPath(sandbox, "grep"),
+      { method: "POST", body: jsonBody(compact({ path, pattern, include: params.include, exclude: params.exclude })) },
       options,
     );
     return normalize(z.object({ items: z.array(searchMatchSchema) }), data).items;
   }
 
+  /** Applies one or more find-and-replace edits to a single file. */
   async editFile(
     sandbox: SandboxRef,
     path: string,
-    edit: FileEdit,
+    edits: FileEdit[],
     options: RequestOptions = {},
   ): Promise<EditFileResult> {
     const data = await this.transport.requestJson<EditFileResult>(
-      `/v1/sandbox/${sandboxIdOf(sandbox)}/filesystem/edit-file`,
-      { method: "POST", body: jsonBody({ path, edits: [edit] }) },
+      this.fsPath(sandbox, "edit-file"),
+      { method: "POST", body: jsonBody({ path, edits }) },
       options,
     );
     return normalize(editFileResultSchema, data);
   }
 
+  /** Replaces text across multiple files at once. */
   async editFiles(
     sandbox: SandboxRef,
-    files: Array<{ path: string; edit: FileEdit }>,
+    params: { paths: string[]; find: string; replace?: string },
     options: RequestOptions = {},
   ): Promise<EditFilesResult> {
     const data = await this.transport.requestJson<EditFilesResult>(
-      `/v1/sandbox/${sandboxIdOf(sandbox)}/filesystem/edit-files`,
+      this.fsPath(sandbox, "edit-files"),
       {
         method: "POST",
         body: jsonBody({
-          files: files.map((file) => ({
-            path: file.path,
-            find: file.edit.find,
-            replace: file.edit.replace,
-          })),
+          files: params.paths,
+          find: params.find,
+          replace: params.replace ?? "",
         }),
       },
       options,
@@ -213,54 +309,60 @@ export class FilesystemClient {
     return normalize(editFilesResultSchema, data);
   }
 
+  /** Moves or renames a file or directory. */
   async move(
     sandbox: SandboxRef,
-    source: string,
-    destination: string,
+    srcPath: string,
+    dstPath: string,
+    overwrite = false,
     options: RequestOptions = {},
   ): Promise<void> {
     await this.transport.request(
-      `/v1/sandbox/${sandboxIdOf(sandbox)}/filesystem/move`,
-      { method: "POST", body: jsonBody({ src_path: source, dst_path: destination }) },
+      this.fsPath(sandbox, "move"),
+      { method: "POST", body: jsonBody({ src_path: srcPath, dst_path: dstPath, overwrite }) },
       options,
     );
   }
 
+  /** Copies a file or directory. */
   async copy(
     sandbox: SandboxRef,
-    source: string,
-    destination: string,
+    srcPath: string,
+    dstPath: string,
+    params: { recursive?: boolean; overwrite?: boolean } = {},
     options: RequestOptions = {},
   ): Promise<void> {
     await this.transport.request(
-      `/v1/sandbox/${sandboxIdOf(sandbox)}/filesystem/copy`,
-      { method: "POST", body: jsonBody({ src_path: source, dst_path: destination }) },
+      this.fsPath(sandbox, "copy"),
+      { method: "POST", body: jsonBody(compact({ src_path: srcPath, dst_path: dstPath, recursive: params.recursive, overwrite: params.overwrite })) },
       options,
     );
   }
 
+  /** Checks whether a path exists in the sandbox. */
   async exists(
     sandbox: SandboxRef,
     path: string,
     options: RequestOptions = {},
-  ): Promise<{ exists: boolean }> {
+  ): Promise<boolean> {
     const data = await this.transport.requestJson(
-      `/v1/sandbox/${sandboxIdOf(sandbox)}/filesystem/exists`,
+      this.fsPath(sandbox, "exists"),
       { method: "POST", body: jsonBody({ path }) },
       options,
     );
-    return z.object({ exists: z.boolean() }).parse(data);
+    return z.object({ exists: z.boolean() }).parse(data).exists;
   }
 
+  /** Gets a recursive directory tree. */
   async tree(
     sandbox: SandboxRef,
     path: string,
-    maxDepth?: number,
+    params: { maxDepth?: number; exclude?: string[] } = {},
     options: RequestOptions = {},
   ): Promise<TreeResult> {
     const data = await this.transport.requestJson<TreeResult>(
-      `/v1/sandbox/${sandboxIdOf(sandbox)}/filesystem/tree`,
-      { method: "POST", body: jsonBody({ path, max_depth: maxDepth }) },
+      this.fsPath(sandbox, "tree"),
+      { method: "POST", body: jsonBody(compact({ path, max_depth: params.maxDepth, exclude: params.exclude })) },
       options,
     );
     return normalize(treeResultSchema, data);

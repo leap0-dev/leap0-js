@@ -78,7 +78,7 @@ export class PtyClient {
       {
         method: "POST",
         body: jsonBody({
-          id: params.id,
+          id: params.sessionId,
           cwd: params.cwd,
           envs: params.envs,
           cols: params.cols,
@@ -122,12 +122,13 @@ export class PtyClient {
     cols: number,
     rows: number,
     options: RequestOptions = {},
-  ): Promise<void> {
-    await this.transport.request(
+  ): Promise<PtySession> {
+    const data = await this.transport.requestJson(
       `/v1/sandbox/${sandboxIdOf(sandbox)}/pty/${encodeURIComponent(sessionId)}/resize`,
       { method: "POST", body: jsonBody({ cols, rows }) },
       options,
     );
+    return normalize(ptySessionSchema, data);
   }
 
   websocketUrl(sandbox: SandboxRef, sessionId: string): string {
@@ -141,6 +142,8 @@ export class PtyClient {
   }
 
   connect(sandbox: SandboxRef, sessionId: string): PtyConnection {
-    return new PtyConnection(new WebSocket(this.websocketUrl(sandbox, sessionId)));
+    return new PtyConnection(
+      new WebSocket(this.websocketUrl(sandbox, sessionId), { headers: this.websocketHeaders() } as never),
+    );
   }
 }

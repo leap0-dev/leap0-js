@@ -9,7 +9,7 @@ async function main(): Promise<void> {
   const client = new Leap0Client();
 
   try {
-    const sandbox = await client.createSandbox({
+    const sandbox = await client.sandboxes.create({
       templateName: DEFAULT_CODE_INTERPRETER_TEMPLATE_NAME,
     });
 

@@ -5,10 +5,10 @@ async function main(): Promise<void> {
   const repoPath = "/workspace/hello-world";
 
   try {
-    const sandbox = await client.createSandbox();
+    const sandbox = await client.sandboxes.create();
 
     try {
-      const clone = await sandbox.git.clone("https://github.com/octocat/Hello-World.git", repoPath);
+      const clone = await sandbox.git.clone({ url: "https://github.com/octocat/Hello-World.git", path: repoPath });
       console.log("clone exit:", clone.exitCode);
 
       const status = await sandbox.git.status(repoPath);
@@ -19,15 +19,15 @@ async function main(): Promise<void> {
         "Hello from the Leap0 JS SDK\n",
       );
       const exists = await sandbox.filesystem.exists(`${repoPath}/sdk-demo.txt`);
-      console.log("file exists:", exists.exists);
+      console.log("file exists:", exists);
 
       const fileInfo = await sandbox.filesystem.stat(`${repoPath}/README`);
       console.log("readme size:", fileInfo.size);
 
-      const tree = await sandbox.filesystem.tree(repoPath, 2);
+      const tree = await sandbox.filesystem.tree(repoPath, { maxDepth: 2 });
       console.log(
         "tree items:",
-        tree.items.map((entry) => entry.name),
+        tree.items.map((entry: { name: string }) => entry.name),
       );
     } finally {
       await sandbox.delete();

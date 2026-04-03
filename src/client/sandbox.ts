@@ -12,6 +12,9 @@ import {
 
 import type { Leap0Client } from "@/client/index.js";
 
+/** @internal Symbol used to access service clients on Leap0Client. */
+export const SERVICES = Symbol.for("leap0.services");
+
 type BoundSandboxMethod<Method> = Method extends (
   sandbox: infer _Sandbox,
   ...args: infer Args
@@ -72,14 +75,15 @@ export class Sandbox implements SandboxData {
     data: SandboxData,
   ) {
     this.update(data);
-    this.filesystem = new SandboxServiceProxy(client.filesystem, this).proxy;
-    this.git = new SandboxServiceProxy(client.git, this).proxy;
-    this.process = new SandboxServiceProxy(client.process, this).proxy;
-    this.pty = new SandboxServiceProxy(client.pty, this).proxy;
-    this.lsp = new SandboxServiceProxy(client.lsp, this).proxy;
-    this.ssh = new SandboxServiceProxy(client.ssh, this).proxy;
-    this.codeInterpreter = new SandboxServiceProxy(client.codeInterpreter, this).proxy;
-    this.desktop = new SandboxServiceProxy(client.desktop, this).proxy;
+    const svc = client[SERVICES];
+    this.filesystem = new SandboxServiceProxy(svc.filesystem, this).proxy;
+    this.git = new SandboxServiceProxy(svc.git, this).proxy;
+    this.process = new SandboxServiceProxy(svc.process, this).proxy;
+    this.pty = new SandboxServiceProxy(svc.pty, this).proxy;
+    this.lsp = new SandboxServiceProxy(svc.lsp, this).proxy;
+    this.ssh = new SandboxServiceProxy(svc.ssh, this).proxy;
+    this.codeInterpreter = new SandboxServiceProxy(svc.codeInterpreter, this).proxy;
+    this.desktop = new SandboxServiceProxy(svc.desktop, this).proxy;
   }
 
   /**
@@ -111,7 +115,7 @@ export class Sandbox implements SandboxData {
    *   The refreshed sandbox handle.
    */
   async refresh(): Promise<this> {
-    this.update(await this.client.sandboxes.get(this.id));
+    this.update(await this.client.sandboxes.get(this.id) as SandboxData);
     return this;
   }
 
@@ -125,7 +129,7 @@ export class Sandbox implements SandboxData {
    *   The paused sandbox handle.
    */
   async pause(options?: { timeout?: number }): Promise<this> {
-    this.update(await this.client.sandboxes.pause(this.id, options));
+    this.update(await this.client.sandboxes.pause(this.id, options) as SandboxData);
     return this;
   }
 

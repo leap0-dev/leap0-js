@@ -14,28 +14,29 @@ test("git client sends expected request shapes", async () => {
     },
   });
   const client = new GitClient(transport as never);
-  await client.clone("sb-1", "https://example.com/repo.git", "/workspace/repo");
+  await client.clone("sb-1", { url: "https://example.com/repo.git", path: "/workspace/repo" });
   await client.status("sb-1", "/workspace/repo");
-  await client.branches("sb-1", "/workspace/repo");
+  await client.branches("sb-1", { path: "/workspace/repo" });
   await client.diffUnstaged("sb-1", "/workspace/repo");
   await client.diffStaged("sb-1", "/workspace/repo");
-  await client.diff("sb-1", "/workspace/repo");
+  await client.diff("sb-1", "/workspace/repo", "main");
   await client.reset("sb-1", "/workspace/repo");
-  await client.log("sb-1", "/workspace/repo");
+  await client.log("sb-1", { path: "/workspace/repo" });
   await client.show("sb-1", "/workspace/repo", "HEAD");
-  await client.createBranch("sb-1", "/workspace/repo", "feat");
-  await client.checkoutBranch("sb-1", "/workspace/repo", "feat");
+  await client.createBranch("sb-1", { path: "/workspace/repo", name: "feat" });
+  await client.checkoutBranch("sb-1", { path: "/workspace/repo", branch: "feat" });
   await client.deleteBranch("sb-1", "/workspace/repo", "feat");
   await client.add("sb-1", "/workspace/repo", ["a.ts"]);
-  await client.commit("sb-1", "/workspace/repo", "msg", "Test User", "test@example.com");
-  await client.push("sb-1", "/workspace/repo");
-  await client.pull("sb-1", "/workspace/repo");
+  await client.commit("sb-1", { path: "/workspace/repo", message: "msg", author: "Test User", email: "test@example.com" });
+  await client.push("sb-1", { path: "/workspace/repo" });
+  await client.pull("sb-1", { path: "/workspace/repo" });
 
   assert.equal(calls[0]?.path, "/v1/sandbox/sb-1/git/clone");
   assert.deepEqual(jsonOf(calls[0]!), {
     url: "https://example.com/repo.git",
     path: "/workspace/repo",
   });
+  assert.deepEqual(jsonOf(calls[5]!), { path: "/workspace/repo", target: "main" });
   assert.deepEqual(jsonOf(calls[8]!), { path: "/workspace/repo", revision: "HEAD" });
   assert.deepEqual(jsonOf(calls[12]!), { path: "/workspace/repo", files: ["a.ts"] });
   assert.deepEqual(jsonOf(calls[13]!), {

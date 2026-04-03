@@ -15,11 +15,11 @@ function waitForOpen(socket: WebSocket): Promise<void> {
 
 async function main(): Promise<void> {
   const client = new Leap0Client();
-  const sandbox = await client.createSandbox();
+  const sandbox = await client.sandboxes.create();
 
   try {
     const session = await sandbox.pty.create({
-      id: "demo-terminal",
+      sessionId: "demo-terminal",
       cols: 120,
       rows: 30,
       cwd: "/home/user",

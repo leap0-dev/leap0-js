@@ -28,6 +28,10 @@ export type DesktopSetScreenParams = z.infer<typeof desktopSetScreenParamsSchema
 export const desktopScreenshotParamsSchema = z.object({
   format: z.enum(["png", "jpg", "jpeg"]).optional(),
   quality: z.number().int().min(1).max(100).optional(),
+  x: z.number().int().optional(),
+  y: z.number().int().optional(),
+  width: z.number().int().optional(),
+  height: z.number().int().optional(),
 });
 export type DesktopScreenshotParams = z.infer<typeof desktopScreenshotParamsSchema>;
 

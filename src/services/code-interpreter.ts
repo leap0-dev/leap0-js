@@ -35,20 +35,24 @@ export class CodeInterpreterClient {
     return (await this.transport.requestJsonUrl<T>(this.requestPath(sandbox, path), init, options))!;
   }
 
-  async health(sandbox: SandboxRef, options: RequestOptions = {}): Promise<{ ok: boolean }> {
-    return await this.fetchJson(sandbox, "/healthz", { method: "GET" }, options);
+  async health(sandbox: SandboxRef, options: RequestOptions = {}): Promise<boolean> {
+    const data = await this.fetchJson<Record<string, unknown>>(sandbox, "/healthz", { method: "GET" }, options);
+    return data?.status === "ok";
   }
   async createContext(
     sandbox: SandboxRef,
-    language: CodeLanguage,
+    language: CodeLanguage = "python" as CodeLanguage,
+    cwd?: string,
     options: RequestOptions = {},
   ): Promise<CodeContext> {
+    const payload: Record<string, unknown> = { language };
+    if (cwd !== undefined) payload.cwd = cwd;
     return normalize(
       codeContextSchema,
       await this.fetchJson(
         sandbox,
         "/contexts",
-        { method: "POST", body: jsonBody({ language }) },
+        { method: "POST", body: jsonBody(payload) },
         options,
       ),
     );
@@ -90,22 +94,28 @@ export class CodeInterpreterClient {
   }
   async execute(
     sandbox: SandboxRef,
-    params: { code: string; language: CodeLanguage; contextId?: string },
+    params: {
+      code: string;
+      language?: CodeLanguage;
+      contextId?: string;
+      envVars?: Record<string, string>;
+      timeoutMs?: number;
+    },
     options: RequestOptions = {},
   ): Promise<CodeExecutionResult> {
+    const payload: Record<string, unknown> = {
+      code: params.code,
+      language: params.language ?? "python",
+    };
+    if (params.contextId !== undefined) payload.context_id = params.contextId;
+    if (params.envVars !== undefined) payload.env_vars = params.envVars;
+    if (params.timeoutMs !== undefined) payload.timeout_ms = params.timeoutMs;
     return normalize(
       codeExecutionResultSchema,
       await this.fetchJson(
         sandbox,
         "/execute",
-        {
-          method: "POST",
-          body: jsonBody({
-            code: params.code,
-            language: params.language,
-            context_id: params.contextId,
-          }),
-        },
+        { method: "POST", body: jsonBody(payload) },
         options,
       ),
     );
@@ -118,21 +128,36 @@ export class CodeInterpreterClient {
     3: StreamEventType.ERROR,
   };
 
+  private static mapWireType(type: number | StreamEvent["type"]): StreamEvent["type"] {
+    if (typeof type === "string") {
+      return type;
+    }
+    const mappedType = CodeInterpreterClient.WIRE_TYPE_MAP[type];
+    if (!mappedType) {
+      throw new Leap0Error(`Unknown stream event type: ${type}`);
+    }
+    return mappedType;
+  }
+
   async *executeStream(
     sandbox: SandboxRef,
-    params: { code: string; language: CodeLanguage; contextId?: string },
+    params: {
+      code: string;
+      language?: CodeLanguage;
+      contextId?: string;
+      timeoutMs?: number;
+    },
     options: RequestOptions = {},
   ): AsyncIterable<StreamEvent> {
+    const payload: Record<string, unknown> = {
+      code: params.code,
+      language: params.language ?? "python",
+    };
+    if (params.contextId !== undefined) payload.context_id = params.contextId;
+    if (params.timeoutMs !== undefined) payload.timeout_ms = params.timeoutMs;
     for await (const event of this.transport.streamJsonUrl(
       this.requestPath(sandbox, "/execute/async"),
-      {
-        method: "POST",
-        body: jsonBody({
-          code: params.code,
-          language: params.language,
-          context_id: params.contextId,
-        }),
-      },
+      { method: "POST", body: jsonBody(payload) },
       options,
     )) {
       if (!event || typeof event !== "object") {
@@ -143,10 +168,7 @@ export class CodeInterpreterClient {
         throw new Leap0Error(typeof record.message === "string" ? record.message : "Stream error");
       }
       const wire = streamEventWireSchema.parse(event);
-      const mappedType = CodeInterpreterClient.WIRE_TYPE_MAP[wire.type];
-      if (!mappedType) {
-        throw new Leap0Error(`Unknown stream event type: ${wire.type}`);
-      }
+      const mappedType = CodeInterpreterClient.mapWireType(wire.type);
       const streamEvent: StreamEvent = { type: mappedType };
       if (wire.data !== undefined) streamEvent.data = wire.data;
       if (wire.code !== undefined) streamEvent.code = wire.code;

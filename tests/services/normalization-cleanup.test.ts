@@ -64,7 +64,7 @@ test("filesystem client normalizes nested snake_case fields", async () => {
     }),
   });
 
-  const result = await new FilesystemClient(transport as never).ls("sb-1");
+  const result = await new FilesystemClient(transport as never).ls("sb-1", "/workspace");
 
   assert.equal(result.items[0]?.isDir, true);
   assert.equal(result.items[0]?.mode, "755");

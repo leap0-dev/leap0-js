@@ -77,7 +77,7 @@ export const codeExecutionResultSchema = z
 export type CodeExecutionResult = z.infer<typeof codeExecutionResultSchema>;
 
 export const streamEventWireSchema = z.object({
-  type: z.number(),
+  type: z.union([z.number(), streamEventTypeSchema]),
   data: z.union([z.string(), z.number()]).optional(),
   code: z.number().optional(),
 });

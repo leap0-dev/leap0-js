@@ -4,7 +4,7 @@ async function main(): Promise<void> {
   const client = new Leap0Client();
 
   try {
-    const sandbox = await client.createSandbox();
+    const sandbox = await client.sandboxes.create();
     try {
       const access = await sandbox.ssh.createAccess();
       console.log("ssh command:", access.sshCommand);

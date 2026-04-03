@@ -145,7 +145,13 @@ export class Leap0Transport {
             headers: this.headers(options.headers ?? init.headers),
             signal: controller.signal,
           });
-          if (!response.ok) {
+          const expected = options.expectedStatus;
+          if (expected !== undefined) {
+            const codes = Array.isArray(expected) ? expected : [expected];
+            if (!codes.includes(response.status)) {
+              throw await this.mapHttpError(response);
+            }
+          } else if (!response.ok) {
             throw await this.mapHttpError(response);
           }
           return response;

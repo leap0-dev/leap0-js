@@ -54,15 +54,29 @@ function injectOtelEnv(
   return merged;
 }
 
+export type SandboxFactory<T> = (data: SandboxData) => T;
+
 /** Creates, fetches, pauses, and deletes sandboxes. */
-export class SandboxesClient {
-  constructor(private readonly transport: Leap0Transport) {}
+export class SandboxesClient<T = SandboxData> {
+  private readonly sandboxFactory?: SandboxFactory<T>;
+
+  constructor(transport: Leap0Transport, sandboxFactory?: SandboxFactory<T>);
+  constructor(
+    private readonly transport: Leap0Transport,
+    sandboxFactory?: SandboxFactory<T>,
+  ) {
+    this.sandboxFactory = sandboxFactory;
+  }
+
+  private wrap(data: SandboxData): T {
+    return (this.sandboxFactory ? this.sandboxFactory(data) : data) as T;
+  }
 
   /** Creates a sandbox from a template and resource config. */
   async create(
     params: CreateSandboxParams = {},
     options: RequestOptions = {},
-  ): Promise<SandboxData> {
+  ): Promise<T> {
     const templateName = (params.templateName ?? DEFAULT_TEMPLATE_NAME).trim();
     const vcpu = params.vcpu ?? DEFAULT_VCPU;
     const memoryMib = params.memoryMib ?? DEFAULT_MEMORY_MIB;
@@ -101,31 +115,31 @@ export class SandboxesClient {
         { method: "POST", body: jsonBody(payload) },
         options,
       );
-      return normalize(sandboxDataSchema, data);
+      return this.wrap(normalize(sandboxDataSchema, data));
     });
   }
 
   /** Pauses a running sandbox. */
-  async pause(sandbox: SandboxRef, options: RequestOptions = {}): Promise<SandboxData> {
+  async pause(sandbox: SandboxRef, options: RequestOptions = {}): Promise<T> {
     return withErrorPrefix("Failed to pause sandbox: ", async () => {
       const data = await this.transport.requestJson<unknown>(
         `/v1/sandbox/${sandboxIdOf(sandbox)}/pause`,
         { method: "POST" },
         options,
       );
-      return normalize(sandboxDataSchema, data);
+      return this.wrap(normalize(sandboxDataSchema, data));
     });
   }
 
   /** Fetches a sandbox by ID. */
-  async get(sandbox: SandboxRef, options: RequestOptions = {}): Promise<SandboxData> {
+  async get(sandbox: SandboxRef, options: RequestOptions = {}): Promise<T> {
     return withErrorPrefix("Failed to get sandbox: ", async () => {
       const data = await this.transport.requestJson<unknown>(
         `/v1/sandbox/${sandboxIdOf(sandbox)}/`,
         { method: "GET" },
         options,
       );
-      return normalize(sandboxDataSchema, data);
+      return this.wrap(normalize(sandboxDataSchema, data));
     });
   }
 

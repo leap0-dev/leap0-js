@@ -2,7 +2,7 @@ import { Leap0Client } from "../src/index.js";
 
 async function main(): Promise<void> {
   const client = new Leap0Client();
-  const sandbox = await client.createSandbox();
+  const sandbox = await client.sandboxes.create();
 
   try {
     const result = await sandbox.process.execute({ command: "echo hello from leap0" });

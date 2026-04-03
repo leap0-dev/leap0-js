@@ -55,14 +55,20 @@ export class LspClient {
     languageId: string,
     pathToProject: string,
     uri: string,
-    text: string,
+    text?: string,
     version = 1,
     options?: RequestOptions,
-  ): Promise<LspResponse> {
-    return await this.json(
-      sandbox,
-      "did-open",
-      { language_id: languageId, path_to_project: pathToProject, uri, text, version },
+  ): Promise<void> {
+    const payload: Record<string, unknown> = {
+      language_id: languageId,
+      path_to_project: pathToProject,
+      uri,
+      version,
+    };
+    if (text !== undefined) payload.text = text;
+    await this.transport.request(
+      `/v1/sandbox/${sandboxIdOf(sandbox)}/lsp/did-open`,
+      { method: "POST", body: jsonBody(payload) },
       options,
     );
   }
@@ -71,11 +77,11 @@ export class LspClient {
     languageId: string,
     pathToProject: string,
     path: string,
-    text: string,
+    text?: string,
     version = 1,
     options?: RequestOptions,
-  ): Promise<LspResponse> {
-    return await this.didOpen(sandbox, languageId, pathToProject, toFileUri(path), text, version, options);
+  ): Promise<void> {
+    await this.didOpen(sandbox, languageId, pathToProject, toFileUri(path), text, version, options);
   }
   async didClose(
     sandbox: SandboxRef,
@@ -83,11 +89,10 @@ export class LspClient {
     pathToProject: string,
     uri: string,
     options?: RequestOptions,
-  ): Promise<LspResponse> {
-    return await this.json(
-      sandbox,
-      "did-close",
-      { language_id: languageId, path_to_project: pathToProject, uri },
+  ): Promise<void> {
+    await this.transport.request(
+      `/v1/sandbox/${sandboxIdOf(sandbox)}/lsp/did-close`,
+      { method: "POST", body: jsonBody({ language_id: languageId, path_to_project: pathToProject, uri }) },
       options,
     );
   }
@@ -97,8 +102,8 @@ export class LspClient {
     pathToProject: string,
     path: string,
     options?: RequestOptions,
-  ): Promise<LspResponse> {
-    return await this.didClose(sandbox, languageId, pathToProject, toFileUri(path), options);
+  ): Promise<void> {
+    await this.didClose(sandbox, languageId, pathToProject, toFileUri(path), options);
   }
   async completions(
     sandbox: SandboxRef,

@@ -15,7 +15,7 @@ export const ptySessionSchema = z
 export type PtySession = z.infer<typeof ptySessionSchema>;
 
 export const createPtySessionParamsSchema = z.object({
-  id: z.string().optional(),
+  sessionId: z.string().optional(),
   cols: z.number().int().positive().optional(),
   rows: z.number().int().positive().optional(),
   cwd: z.string().optional(),

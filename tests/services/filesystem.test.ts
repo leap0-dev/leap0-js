@@ -40,19 +40,20 @@ test("filesystem client sends expected request shapes", async () => {
   await client.readFile("sb-1", "/tmp/a.txt", { head: 10 });
   await client.readBytes("sb-1", "/tmp/b.bin");
   await client.delete("sb-1", "/tmp/a.txt");
-  await client.setPermissions("sb-1", "/tmp/a.txt", "0755");
+  await client.setPermissions("sb-1", "/tmp/a.txt", { mode: "0755" });
   await client.glob("sb-1", "/workspace", "**/*.ts");
   await client.grep("sb-1", "/workspace", "todo");
-  await client.editFile("sb-1", "/tmp/a.txt", { find: "a", replace: "b" });
-  await client.editFiles("sb-1", [{ path: "/tmp/a.txt", edit: { find: "a", replace: "b" } }]);
+  await client.editFile("sb-1", "/tmp/a.txt", [{ find: "a", replace: "b" }]);
+  await client.editFiles("sb-1", { paths: ["/tmp/a.txt"], find: "a", replace: "b" });
   await client.move("sb-1", "/tmp/a", "/tmp/b");
   await client.copy("sb-1", "/tmp/b", "/tmp/c");
-  await client.exists("sb-1", "/tmp/c");
-  await client.tree("sb-1", "/workspace", 2);
+  const fileExists = await client.exists("sb-1", "/tmp/c");
+  await client.tree("sb-1", "/workspace", { maxDepth: 2 });
 
   assert.equal(calls[0]?.path, "/v1/sandbox/sb-1/filesystem/ls");
   assert.deepEqual(jsonOf(calls[0]!), { path: "/workspace" });
-  assert.equal(new Headers(calls[3]!.init.headers).get("content-type"), "text/plain");
+  // writeFile goes through writeBytes, both use octet-stream
+  assert.equal(new Headers(calls[3]!.init.headers).get("content-type"), "application/octet-stream");
   assert.equal(calls[3]?.options.query?.path, "/tmp/a.txt");
   assert.equal(new Headers(calls[4]!.init.headers).get("content-type"), "application/octet-stream");
   assert.deepEqual(jsonOf(calls[5]!), { path: "/tmp/a.txt", head: 10 });
@@ -60,7 +61,13 @@ test("filesystem client sends expected request shapes", async () => {
     path: "/tmp/a.txt",
     edits: [{ find: "a", replace: "b" }],
   });
-  assert.deepEqual(jsonOf(calls[13]!), { src_path: "/tmp/a", dst_path: "/tmp/b" });
-  assert.deepEqual(jsonOf(calls[14]!), { src_path: "/tmp/b", dst_path: "/tmp/c" });
+  assert.deepEqual(jsonOf(calls[12]!), {
+    files: ["/tmp/a.txt"],
+    find: "a",
+    replace: "b",
+  });
+  assert.deepEqual(jsonOf(calls[13]!), { src_path: "/tmp/a", dst_path: "/tmp/b", overwrite: false });
+  assert.equal(typeof fileExists, "boolean");
+  assert.equal(fileExists, true);
   assert.deepEqual(jsonOf(calls[16]!), { path: "/workspace", max_depth: 2 });
 });

@@ -4,14 +4,14 @@ async function main(): Promise<void> {
   const client = new Leap0Client();
 
   try {
-    const sandbox = await client.createSandbox();
+    const sandbox = await client.sandboxes.create();
     try {
       await sandbox.filesystem.writeFile("/workspace/checkpoint.txt", "before snapshot\n");
 
       const snapshot = await client.snapshots.create(sandbox, { name: "example-checkpoint" });
       console.log("snapshot:", snapshot.id);
 
-      const restored = await client.resumeSnapshot({
+      const restored = await client.snapshots.resume({
         snapshotName: snapshot.name ?? "example-checkpoint",
       });
       try {

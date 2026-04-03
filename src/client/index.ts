@@ -16,7 +16,19 @@ import {
   TemplatesClient,
 } from "@/services/index.js";
 
-import { Sandbox } from "@/client/sandbox.js";
+import { Sandbox, SERVICES } from "@/client/sandbox.js";
+
+/** Internal service map used by Sandbox to bind per-sandbox proxies. */
+export interface ClientServices {
+  filesystem: FilesystemClient;
+  git: GitClient;
+  process: ProcessClient;
+  pty: PtyClient;
+  lsp: LspClient;
+  ssh: SshClient;
+  codeInterpreter: CodeInterpreterClient;
+  desktop: DesktopClient;
+}
 
 /**
  * Top-level Leap0 SDK client that exposes all service groups.
@@ -24,17 +36,12 @@ import { Sandbox } from "@/client/sandbox.js";
 export class Leap0Client {
   private readonly transport: Leap0Transport;
 
-  readonly sandboxes: SandboxesClient;
-  readonly snapshots: SnapshotsClient;
+  readonly sandboxes: SandboxesClient<Sandbox>;
+  readonly snapshots: SnapshotsClient<Sandbox>;
   readonly templates: TemplatesClient;
-  readonly filesystem: FilesystemClient;
-  readonly git: GitClient;
-  readonly process: ProcessClient;
-  readonly pty: PtyClient;
-  readonly lsp: LspClient;
-  readonly ssh: SshClient;
-  readonly codeInterpreter: CodeInterpreterClient;
-  readonly desktop: DesktopClient;
+
+  /** @internal - used by Sandbox to bind service proxies. */
+  readonly [SERVICES]: ClientServices;
 
   /** Creates a client using explicit config or environment variables. */
   constructor(config: Leap0ConfigInput = {}) {
@@ -44,67 +51,22 @@ export class Leap0Client {
       initOtel(resolved);
     }
 
-    this.sandboxes = new SandboxesClient(this.transport);
-    this.snapshots = new SnapshotsClient(this.transport);
+    const wrapSandbox = (data: import("@/models/index.js").SandboxData) => new Sandbox(this, data);
+
+    this.sandboxes = new SandboxesClient(this.transport, wrapSandbox);
+    this.snapshots = new SnapshotsClient(this.transport, wrapSandbox);
     this.templates = new TemplatesClient(this.transport);
-    this.filesystem = new FilesystemClient(this.transport);
-    this.git = new GitClient(this.transport);
-    this.process = new ProcessClient(this.transport);
-    this.pty = new PtyClient(this.transport);
-    this.lsp = new LspClient(this.transport);
-    this.ssh = new SshClient(this.transport);
-    this.codeInterpreter = new CodeInterpreterClient(this.transport);
-    this.desktop = new DesktopClient(this.transport);
-  }
 
-  /**
-   * Fetches a sandbox by ID.
-   *
-   * Args:
-   *   sandboxId: Sandbox identifier.
-   *
-   * Returns:
-   *   The sandbox payload.
-   */
-  async getSandbox(sandboxId: string): Promise<Sandbox> {
-    const data = await this.sandboxes.get(sandboxId);
-    return new Sandbox(this, data);
-  }
-
-  /**
-   * Creates a new sandbox.
-   *
-   * Args:
-   *   params: Sandbox creation parameters.
-   *   options: Optional request settings.
-   *
-   * Returns:
-   *   The created sandbox payload.
-   */
-  async createSandbox(
-    params?: Parameters<SandboxesClient["create"]>[0],
-    options?: Parameters<SandboxesClient["create"]>[1],
-  ): Promise<Sandbox> {
-    const data = await this.sandboxes.create(params, options);
-    return new Sandbox(this, data);
-  }
-
-  /**
-   * Resumes a sandbox from a snapshot.
-   *
-   * Args:
-   *   params: Snapshot resume parameters.
-   *   options: Optional request settings.
-   *
-   * Returns:
-   *   The restored sandbox payload.
-   */
-  async resumeSnapshot(
-    params: Parameters<SnapshotsClient["resume"]>[0],
-    options?: Parameters<SnapshotsClient["resume"]>[1],
-  ): Promise<Sandbox> {
-    const data = await this.snapshots.resume(params, options);
-    return new Sandbox(this, data);
+    this[SERVICES] = {
+      filesystem: new FilesystemClient(this.transport),
+      git: new GitClient(this.transport),
+      process: new ProcessClient(this.transport),
+      pty: new PtyClient(this.transport),
+      lsp: new LspClient(this.transport),
+      ssh: new SshClient(this.transport),
+      codeInterpreter: new CodeInterpreterClient(this.transport),
+      desktop: new DesktopClient(this.transport),
+    };
   }
 
   /** Closes the underlying transport. */
