@@ -3,16 +3,16 @@ import { z } from "zod";
 export const desktopDisplayInfoSchema = z
   .object({
     display: z.string(),
-    width: z.number(),
-    height: z.number(),
+    width: z.number().int(),
+    height: z.number().int(),
   })
   .catchall(z.unknown());
 export type DesktopDisplayInfo = z.infer<typeof desktopDisplayInfoSchema>;
 
 export const desktopPointerPositionSchema = z
   .object({
-    x: z.number(),
-    y: z.number(),
+    x: z.number().int(),
+    y: z.number().int(),
   })
   .catchall(z.unknown());
 export type DesktopPointerPosition = z.infer<typeof desktopPointerPositionSchema>;
@@ -34,6 +34,9 @@ export const desktopScreenshotParamsSchema = z
   })
   .refine((params) => (params.width === undefined) === (params.height === undefined), {
     message: "width and height must be provided together",
+  })
+  .refine((params) => (params.x === undefined) === (params.y === undefined), {
+    message: "x and y must be provided together",
   });
 export type DesktopScreenshotParams = z.infer<typeof desktopScreenshotParamsSchema>;
 
@@ -76,12 +79,12 @@ export type DesktopScrollParams = z.infer<typeof desktopScrollParamsSchema>;
 export const desktopWindowSchema = z
   .object({
     id: z.string().optional(),
-    desktop: z.number().optional(),
-    pid: z.number().optional(),
-    x: z.number().optional(),
-    y: z.number().optional(),
-    width: z.number().optional(),
-    height: z.number().optional(),
+    desktop: z.number().int().optional(),
+    pid: z.number().int().optional(),
+    x: z.number().int().optional(),
+    y: z.number().int().optional(),
+    width: z.number().int().optional(),
+    height: z.number().int().optional(),
     class: z.string().optional(),
     host: z.string().optional(),
     title: z.string().optional(),
@@ -103,7 +106,7 @@ export const desktopRecordingSummarySchema = z
     fileName: z.string().optional(),
     download: z.string().optional(),
     mimeType: z.string().optional(),
-    sizeBytes: z.number().optional(),
+    sizeBytes: z.number().int().optional(),
     createdAt: z.string().optional(),
     active: z.boolean().optional(),
   })
@@ -132,18 +135,16 @@ export const desktopProcessStatusSchema = z
     pid: z.number().optional(),
     stdoutLog: z.string().optional(),
     stderrLog: z.string().optional(),
-  })
-  .catchall(z.unknown());
+  });
 export type DesktopProcessStatus = z.infer<typeof desktopProcessStatusSchema>;
 
 export const desktopProcessStatusListSchema = z
   .object({
     status: z.enum(["running", "degraded", "stopped"]).optional(),
     items: z.array(desktopProcessStatusSchema).optional(),
-    running: z.number().optional(),
-    total: z.number().optional(),
-  })
-  .catchall(z.unknown());
+    running: z.number().int().optional(),
+    total: z.number().int().optional(),
+  });
 export type DesktopProcessStatusList = z.infer<typeof desktopProcessStatusListSchema>;
 
 export const desktopStatusStreamEventSchema = desktopProcessStatusListSchema;

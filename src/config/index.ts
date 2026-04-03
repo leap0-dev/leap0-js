@@ -71,15 +71,21 @@ function parseConfigOrThrow<T>(
 export function resolveConfig(input: Leap0ConfigInput = {}): Leap0ConfigResolved {
   try {
     parseConfigOrThrow(leap0ConfigInputSchema.safeParse(input));
-    const apiKey = apiKeyRequiredSchema.parse(input.apiKey ?? readEnv("LEAP0_API_KEY"));
+    const apiKey = parseConfigOrThrow(
+      apiKeyRequiredSchema.safeParse(input.apiKey ?? readEnv("LEAP0_API_KEY")),
+    );
     const baseUrl = trimSlash(
       (input.baseUrl ?? readEnv("LEAP0_BASE_URL") ?? DEFAULT_BASE_URL).trim(),
     );
     const sandboxDomain = trimSlash(
       (input.sandboxDomain ?? readEnv("LEAP0_SANDBOX_DOMAIN") ?? DEFAULT_SANDBOX_DOMAIN).trim(),
     );
-    const timeout = timeoutSchema.parse(input.timeout ?? DEFAULT_CLIENT_TIMEOUT);
-    const authHeader = authHeaderSchema.parse(input.authHeader ?? "authorization");
+    const timeout = parseConfigOrThrow(
+      timeoutSchema.safeParse(input.timeout ?? DEFAULT_CLIENT_TIMEOUT),
+    );
+    const authHeader = parseConfigOrThrow(
+      authHeaderSchema.safeParse(input.authHeader ?? "authorization"),
+    );
     const bearer = input.bearer ?? true;
     const envOtel = readEnv("LEAP0_SDK_OTEL_ENABLED");
     const sdkOtelEnabled = input.sdkOtelEnabled ?? resolveSdkOtelFromEnv(envOtel);
