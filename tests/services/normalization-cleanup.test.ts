@@ -1,0 +1,84 @@
+import assert from "node:assert/strict";
+import { test } from "vitest";
+
+import { CodeInterpreterClient } from "@/services/code-interpreter.js";
+import { FilesystemClient } from "@/services/filesystem.js";
+import { SshClient } from "@/services/ssh.js";
+import { TemplatesClient } from "@/services/templates.js";
+import { createRecordedTransport } from "@tests/utils/helpers.ts";
+
+test("template client normalizes created_at", async () => {
+  const { transport } = createRecordedTransport({
+    requestJson: async () => ({
+      id: "tpl-1",
+      name: "custom",
+      digest: "sha256:abc",
+      image_config: { entrypoint: ["python"], cmd: ["app.py"] },
+      is_system: false,
+      created_at: "2026-01-01T00:00:00Z",
+    }),
+  });
+
+  const template = await new TemplatesClient(transport as never).create({
+    name: "custom",
+    uri: "docker.io/acme/app:latest",
+  });
+
+  assert.equal(template.createdAt, "2026-01-01T00:00:00Z");
+});
+
+test("ssh client normalizes expires_at", async () => {
+  const { transport } = createRecordedTransport({
+    requestJson: async () => ({
+      id: "ssh-1",
+      sandbox_id: "sb-1",
+      password: "secret",
+      expires_at: "2026-01-01T00:00:00Z",
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-01T00:00:00Z",
+      ssh_command: "ssh ssh-1@sandbox",
+    }),
+  });
+
+  const access = await new SshClient(transport as never).createAccess("sb-1");
+
+  assert.equal(access.expiresAt, "2026-01-01T00:00:00Z");
+});
+
+test("filesystem client normalizes nested snake_case fields", async () => {
+  const { transport } = createRecordedTransport({
+    requestJson: async () => ({
+      items: [
+        {
+          name: "tmp",
+          path: "/tmp",
+          is_dir: true,
+          size: 0,
+          mode: "755",
+          mtime: 1,
+          owner: "root",
+          group: "root",
+          is_symlink: false,
+        },
+      ],
+    }),
+  });
+
+  const result = await new FilesystemClient(transport as never).ls("sb-1");
+
+  assert.equal(result.items[0]?.isDir, true);
+  assert.equal(result.items[0]?.mode, "755");
+});
+
+test("code interpreter client normalizes context fields", async () => {
+  const { transport } = createRecordedTransport({
+    requestJsonUrl: async () => ({ id: "ctx-1", language: 1, cwd: "/workspace" }),
+  });
+
+  const context = await new CodeInterpreterClient(
+    transport as never,
+    "sandbox.example.com",
+  ).createContext("sb-1", "python");
+
+  assert.equal(context.cwd, "/workspace");
+});

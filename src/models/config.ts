@@ -1,4 +1,4 @@
-import { z } from "zod"
+import { z } from "zod";
 
 export const leap0ConfigInputSchema = z.object({
   apiKey: z.string().optional(),
@@ -8,8 +8,8 @@ export const leap0ConfigInputSchema = z.object({
   authHeader: z.string().optional(),
   bearer: z.boolean().optional(),
   sdkOtelEnabled: z.boolean().optional(),
-})
-export type Leap0ConfigInput = z.infer<typeof leap0ConfigInputSchema>
+});
+export type Leap0ConfigInput = z.infer<typeof leap0ConfigInputSchema>;
 
 export const leap0ConfigResolvedSchema = z.object({
   apiKey: z.string(),
@@ -19,5 +19,5 @@ export const leap0ConfigResolvedSchema = z.object({
   authHeader: z.string(),
   bearer: z.boolean(),
   sdkOtelEnabled: z.boolean(),
-})
-export type Leap0ConfigResolved = z.infer<typeof leap0ConfigResolvedSchema>
+});
+export type Leap0ConfigResolved = z.infer<typeof leap0ConfigResolvedSchema>;

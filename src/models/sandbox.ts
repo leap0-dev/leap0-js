@@ -1,64 +1,69 @@
-import { z } from "zod"
+import { z } from "zod";
 
 export const NetworkPolicyMode = {
   ALLOW_ALL: "allow-all",
   DENY_ALL: "deny-all",
   CUSTOM: "custom",
-} as const
+} as const;
 
 export const SandboxState = {
-  CREATING: "creating",
   STARTING: "starting",
-  STARTED: "started",
-  PAUSING: "pausing",
+  RUNNING: "running",
+  SNAPSHOTTING: "snapshotting",
   PAUSED: "paused",
-  STOPPING: "stopping",
-  STOPPED: "stopped",
-  DESTROYED: "destroyed",
-  ERROR: "error",
-} as const
+  UNPAUSING: "unpausing",
+  DELETING: "deleting",
+  DELETED: "deleted",
+} as const;
 
 export const networkPolicyModeSchema = z.enum([
   NetworkPolicyMode.ALLOW_ALL,
   NetworkPolicyMode.DENY_ALL,
   NetworkPolicyMode.CUSTOM,
-])
-export type NetworkPolicyMode = z.infer<typeof networkPolicyModeSchema>
+]);
+export type NetworkPolicyMode = z.infer<typeof networkPolicyModeSchema>;
 
 export const networkPolicySchema = z.object({
   mode: networkPolicyModeSchema,
   allowedDomains: z.array(z.string()).optional(),
   allowedCidrs: z.array(z.string()).optional(),
-})
-export type NetworkPolicy = z.infer<typeof networkPolicySchema>
+  transforms: z
+    .array(
+      z.object({
+        domain: z.string(),
+        injectHeaders: z.record(z.string(), z.string()).optional(),
+        stripHeaders: z.array(z.string()).optional(),
+      }),
+    )
+    .optional(),
+});
+export type NetworkPolicy = z.infer<typeof networkPolicySchema>;
 
 export const sandboxStateSchema = z.enum([
-  SandboxState.CREATING,
   SandboxState.STARTING,
-  SandboxState.STARTED,
-  SandboxState.PAUSING,
+  SandboxState.RUNNING,
+  SandboxState.SNAPSHOTTING,
   SandboxState.PAUSED,
-  SandboxState.STOPPING,
-  SandboxState.STOPPED,
-  SandboxState.DESTROYED,
-  SandboxState.ERROR,
-])
-export type SandboxState = z.infer<typeof sandboxStateSchema>
+  SandboxState.UNPAUSING,
+  SandboxState.DELETING,
+  SandboxState.DELETED,
+]);
+export type SandboxState = z.infer<typeof sandboxStateSchema>;
 
-export const sandboxDataSchema = z.object({
-  id: z.string(),
-  templateName: z.string().optional(),
-  state: sandboxStateSchema.optional(),
-  vcpu: z.number().optional(),
-  memoryMib: z.number().optional(),
-  timeoutMin: z.number().optional(),
-  autoPause: z.boolean().optional(),
-  envVars: z.record(z.string(), z.string()).optional(),
-  networkPolicy: networkPolicySchema.optional(),
-  createdAt: z.string().optional(),
-  updatedAt: z.string().optional(),
-}).catchall(z.unknown())
-export type SandboxData = z.infer<typeof sandboxDataSchema>
+export const sandboxDataSchema = z
+  .object({
+    id: z.string(),
+    templateId: z.string(),
+    state: sandboxStateSchema,
+    vcpu: z.number(),
+    memoryMib: z.number(),
+    diskMib: z.number(),
+    autoPause: z.boolean(),
+    networkPolicy: networkPolicySchema.optional(),
+    createdAt: z.string(),
+  })
+  .catchall(z.unknown());
+export type SandboxData = z.infer<typeof sandboxDataSchema>;
 
 export const createSandboxParamsSchema = z.object({
   templateName: z.string().optional(),
@@ -70,5 +75,33 @@ export const createSandboxParamsSchema = z.object({
   telemetry: z.boolean().optional(),
   envVars: z.record(z.string(), z.string()).optional(),
   networkPolicy: networkPolicySchema.optional(),
-})
-export type CreateSandboxParams = z.infer<typeof createSandboxParamsSchema>
+});
+export type CreateSandboxParams = z.infer<typeof createSandboxParamsSchema>;
+
+type NetworkPolicyWire = {
+  mode: NetworkPolicyMode;
+  allow_domains?: string[];
+  allow_cidrs?: string[];
+  transforms?: Array<{
+    domain: string;
+    inject_headers?: Record<string, string>;
+    strip_headers?: string[];
+  }>;
+};
+
+export function toNetworkPolicyWire(
+  policy: NetworkPolicy | undefined,
+): NetworkPolicyWire | undefined {
+  if (policy == null) return undefined;
+
+  return {
+    mode: policy.mode,
+    allow_domains: policy.allowedDomains,
+    allow_cidrs: policy.allowedCidrs,
+    transforms: policy.transforms?.map((transform) => ({
+      domain: transform.domain,
+      inject_headers: transform.injectHeaders,
+      strip_headers: transform.stripHeaders,
+    })),
+  };
+}
