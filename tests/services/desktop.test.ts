@@ -45,7 +45,7 @@ test("desktop client sends expected request shapes", async () => {
       return Promise.resolve({ ok: true });
     },
   });
-  const client = new DesktopClient(transport as never, "sandbox.example.com");
+  const client = new DesktopClient(transport as never);
   await client.display("sb-1");
   await client.setScreen("sb-1", { width: 1280, height: 720 });
   await client.movePointer("sb-1", 10, 20);
@@ -73,7 +73,7 @@ test("desktop statusStream parses SSE and raises API errors", async () => {
     },
     requestJsonUrl: () => Promise.reject(new Leap0Error("Desktop request failed")),
   });
-  const client = new DesktopClient(transport as never, "sandbox.example.com");
+  const client = new DesktopClient(transport as never);
   const events: unknown[] = [];
   for await (const event of client.statusStream("sb-1")) events.push(event);
   assert.deepEqual(events, [

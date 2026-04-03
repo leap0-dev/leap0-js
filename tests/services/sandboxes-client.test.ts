@@ -21,7 +21,7 @@ function makeClient() {
       });
     },
   });
-  const client = new SandboxesClient(transport as never, "sandbox.example.com");
+  const client = new SandboxesClient(transport as never);
   return { client, calls };
 }
 

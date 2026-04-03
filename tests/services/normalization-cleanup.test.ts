@@ -77,7 +77,6 @@ test("code interpreter client normalizes context fields", async () => {
 
   const context = await new CodeInterpreterClient(
     transport as never,
-    "sandbox.example.com",
   ).createContext("sb-1", "python");
 
   assert.equal(context.cwd, "/workspace");

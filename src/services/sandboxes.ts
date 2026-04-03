@@ -3,6 +3,8 @@ import {
   DEFAULT_TEMPLATE_NAME,
   DEFAULT_TIMEOUT_MIN,
   DEFAULT_VCPU,
+  OTEL_EXPORTER_OTLP_ENDPOINT,
+  OTEL_EXPORTER_OTLP_HEADERS,
 } from "@/config/constants.js";
 import { Leap0Error } from "@/core/errors.js";
 import { normalize } from "@/core/normalize.js";
@@ -22,9 +24,6 @@ import {
 } from "@/core/utils.js";
 import { withErrorPrefix } from "@/services/shared.js";
 
-const OTEL_EXPORTER_OTLP_ENDPOINT = "OTEL_EXPORTER_OTLP_ENDPOINT";
-const OTEL_EXPORTER_OTLP_HEADERS = "OTEL_EXPORTER_OTLP_HEADERS";
-
 function injectOtelEnv(
   envVars: Record<string, string> | undefined,
   enabled: boolean,
@@ -33,7 +32,9 @@ function injectOtelEnv(
     return envVars;
   }
 
-  const endpoint = process.env[OTEL_EXPORTER_OTLP_ENDPOINT]?.trim();
+  const env: Record<string, string | undefined> =
+    typeof process !== "undefined" && process.env ? process.env : {};
+  const endpoint = env[OTEL_EXPORTER_OTLP_ENDPOINT]?.trim();
   if (!endpoint) {
     throw new Leap0Error(
       `otelExport=true requires ${OTEL_EXPORTER_OTLP_ENDPOINT} in the local environment`,
@@ -43,7 +44,7 @@ function injectOtelEnv(
   const merged: Record<string, string> = {
     [OTEL_EXPORTER_OTLP_ENDPOINT]: endpoint,
   };
-  const headers = process.env[OTEL_EXPORTER_OTLP_HEADERS]?.trim();
+  const headers = env[OTEL_EXPORTER_OTLP_HEADERS]?.trim();
   if (headers) {
     merged[OTEL_EXPORTER_OTLP_HEADERS] = headers;
   }
@@ -55,10 +56,7 @@ function injectOtelEnv(
 
 /** Creates, fetches, pauses, and deletes sandboxes. */
 export class SandboxesClient {
-  constructor(
-    private readonly transport: Leap0Transport,
-    private readonly sandboxDomain: string,
-  ) {}
+  constructor(private readonly transport: Leap0Transport) {}
 
   /** Creates a sandbox from a template and resource config. */
   async create(
@@ -140,7 +138,7 @@ export class SandboxesClient {
 
   /** Builds the public invoke URL for a sandbox. */
   invokeUrl(sandbox: SandboxRef, path = "/", port?: number): string {
-    return `${sandboxBaseUrl(sandboxIdOf(sandbox), this.sandboxDomain, port)}${ensureLeadingSlash(path)}`;
+    return `${sandboxBaseUrl(sandboxIdOf(sandbox), this.transport.sandboxDomain, port)}${ensureLeadingSlash(path)}`;
   }
 
   /** Builds the public websocket URL for a sandbox. */

@@ -24,7 +24,7 @@ export type CreateSnapshotParams = z.infer<typeof createSnapshotParamsSchema>;
 export const resumeSnapshotParamsSchema = z.object({
   snapshotName: z.string(),
   autoPause: z.boolean().optional(),
-  timeoutMin: z.number().int().optional(),
+  timeoutMin: z.number().int().positive().optional(),
   networkPolicy: networkPolicySchema.optional(),
 });
 export type ResumeSnapshotParams = z.infer<typeof resumeSnapshotParamsSchema>;

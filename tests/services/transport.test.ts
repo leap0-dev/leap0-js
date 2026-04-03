@@ -26,7 +26,10 @@ function makeTransport() {
 }
 
 test("transport headers include auth and sdk metadata", () => {
-  const headers = makeTransport().headers({ "x-extra": "1" });
+  // oxlint-disable-next-line -- access private method for testing
+  const headers = (makeTransport() as never as { headers(extra?: HeadersInit): Headers }).headers({
+    "x-extra": "1",
+  });
   assert.equal(headers.get("authorization"), "Bearer test-key");
   assert.equal(headers.get("Leap0-Source"), "sdk-ts");
   assert.match(headers.get("User-Agent") ?? "", /^leap0-js\//);

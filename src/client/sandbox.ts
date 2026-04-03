@@ -52,7 +52,7 @@ export class Sandbox implements SandboxData {
   vcpu!: number;
   memoryMib!: number;
   diskMib!: number;
-  autoPause!: boolean;
+  autoPause?: boolean;
   networkPolicy?: SandboxData["networkPolicy"];
   createdAt!: string;
   [key: string]: unknown;
@@ -91,8 +91,16 @@ export class Sandbox implements SandboxData {
    * Returns:
    *   The updated sandbox handle.
    */
-  update(data: SandboxData): this {
-    Object.assign(this, data);
+  private update(data: SandboxData): this {
+    this.id = data.id;
+    this.templateId = data.templateId;
+    this.state = data.state;
+    this.vcpu = data.vcpu;
+    this.memoryMib = data.memoryMib;
+    this.diskMib = data.diskMib;
+    this.autoPause = data.autoPause;
+    this.networkPolicy = data.networkPolicy;
+    this.createdAt = data.createdAt;
     return this;
   }
 

@@ -11,8 +11,8 @@ import type { Leap0ConfigResolved } from "@/models/config.js";
 import { SDK_VERSION } from "@/core/version.js";
 
 const TRACER_NAME = "leap0-js-sdk";
-let tracerProviderInitialized = false;
-let meterProviderInitialized = false;
+let tracerProviderInstance: NodeTracerProvider | undefined;
+let meterProviderInstance: MeterProvider | undefined;
 
 /**
  * Returns the shared OpenTelemetry tracer for the SDK.
@@ -36,21 +36,32 @@ export function initOtel(_config: Leap0ConfigResolved): void {
     [ATTR_SERVICE_VERSION]: SDK_VERSION,
   });
 
-  if (!tracerProviderInitialized) {
-    const tracerProvider = new NodeTracerProvider({
+  if (!tracerProviderInstance) {
+    tracerProviderInstance = new NodeTracerProvider({
       resource,
       spanProcessors: [new BatchSpanProcessor(new OTLPTraceExporter())],
     });
-    trace.setGlobalTracerProvider(tracerProvider);
-    tracerProviderInitialized = true;
+    trace.setGlobalTracerProvider(tracerProviderInstance);
   }
 
-  if (!meterProviderInitialized) {
+  if (!meterProviderInstance) {
     const metricReader = new PeriodicExportingMetricReader({ exporter: new OTLPMetricExporter() });
-    const meterProvider = new MeterProvider({ resource, readers: [metricReader] });
-    metrics.setGlobalMeterProvider(meterProvider);
-    meterProviderInitialized = true;
+    meterProviderInstance = new MeterProvider({ resource, readers: [metricReader] });
+    metrics.setGlobalMeterProvider(meterProviderInstance);
   }
+}
+
+/**
+ * Shuts down OpenTelemetry providers and resets state so they can be re-initialized.
+ *
+ * Returns:
+ *   A promise that resolves once providers are flushed and shut down.
+ */
+export async function shutdownOtel(): Promise<void> {
+  await tracerProviderInstance?.shutdown();
+  await meterProviderInstance?.shutdown();
+  tracerProviderInstance = undefined;
+  meterProviderInstance = undefined;
 }
 
 /**

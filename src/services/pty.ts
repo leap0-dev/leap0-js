@@ -9,7 +9,7 @@ import type {
 } from "@/models/index.js";
 import { Leap0Transport, jsonBody } from "@/core/transport.js";
 import { ptySessionSchema } from "@/models/pty.js";
-import { sandboxBaseUrl, sandboxIdOf, websocketUrlFromHttp } from "@/core/utils.js";
+import { sandboxIdOf, websocketUrlFromHttp } from "@/core/utils.js";
 
 /** Thin wrapper around an interactive PTY websocket connection. */
 export class PtyConnection {
@@ -21,30 +21,32 @@ export class PtyConnection {
 
   recv(): Promise<Uint8Array> {
     return new Promise((resolve, reject) => {
-      this.socket.addEventListener(
-        "message",
-        (event) => {
-          const value = event.data;
-          if (typeof value === "string") {
-            resolve(new TextEncoder().encode(value));
-            return;
-          }
-          if (value instanceof Blob) {
-            value
-              .arrayBuffer()
-              .then((buffer) => resolve(new Uint8Array(buffer)))
-              .catch(reject);
-            return;
-          }
-          resolve(new Uint8Array(value));
-        },
-        { once: true },
-      );
-      this.socket.addEventListener(
-        "error",
-        () => reject(new Leap0WebSocketError("PTY websocket error")),
-        { once: true },
-      );
+      const cleanup = () => {
+        this.socket.removeEventListener("message", onMessage);
+        this.socket.removeEventListener("error", onError);
+      };
+      const onMessage = (event: MessageEvent) => {
+        cleanup();
+        const value = event.data;
+        if (typeof value === "string") {
+          resolve(new TextEncoder().encode(value));
+          return;
+        }
+        if (value instanceof Blob) {
+          value
+            .arrayBuffer()
+            .then((buffer) => resolve(new Uint8Array(buffer)))
+            .catch(reject);
+          return;
+        }
+        resolve(new Uint8Array(value));
+      };
+      const onError = () => {
+        cleanup();
+        reject(new Leap0WebSocketError("PTY websocket error"));
+      };
+      this.socket.addEventListener("message", onMessage, { once: true });
+      this.socket.addEventListener("error", onError, { once: true });
     });
   }
 
@@ -55,10 +57,7 @@ export class PtyConnection {
 
 /** Creates and manages PTY sessions for interactive terminals. */
 export class PtyClient {
-  constructor(
-    private readonly transport: Leap0Transport,
-    private readonly sandboxDomain: string,
-  ) {}
+  constructor(private readonly transport: Leap0Transport) {}
 
   async list(sandbox: SandboxRef, options: RequestOptions = {}): Promise<PtySession[]> {
     const data = await this.transport.requestJson(
@@ -133,8 +132,12 @@ export class PtyClient {
 
   websocketUrl(sandbox: SandboxRef, sessionId: string): string {
     return websocketUrlFromHttp(
-      `${sandboxBaseUrl(sandboxIdOf(sandbox), this.sandboxDomain)}/v1/sandbox/${sandboxIdOf(sandbox)}/pty/${encodeURIComponent(sessionId)}/connect`,
+      `${this.transport.baseUrl}/v1/sandbox/${sandboxIdOf(sandbox)}/pty/${encodeURIComponent(sessionId)}/connect`,
     );
+  }
+
+  websocketHeaders(): Record<string, string> {
+    return { authorization: this.transport.apiKey };
   }
 
   connect(sandbox: SandboxRef, sessionId: string): PtyConnection {

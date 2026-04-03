@@ -9,7 +9,10 @@ import type { Leap0ConfigInput, Leap0ConfigResolved } from "@/models/config.js";
 import { trimSlash } from "@/core/utils.js";
 
 function readEnv(name: string): string | undefined {
-  return process.env[name];
+  if (typeof process !== "undefined" && process.env) {
+    return process.env[name];
+  }
+  return undefined;
 }
 
 function requireNonEmpty(value: string | undefined, label: string): string {

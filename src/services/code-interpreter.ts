@@ -12,17 +12,18 @@ import type {
 import { Leap0Transport, jsonBody } from "@/core/transport.js";
 import { sandboxBaseUrl, sandboxIdOf } from "@/core/utils.js";
 import { StreamEventType } from "@/models/index.js";
-import { codeContextSchema, codeExecutionResultSchema } from "@/models/code-interpreter.js";
+import {
+  codeContextSchema,
+  codeExecutionResultSchema,
+  streamEventWireSchema,
+} from "@/models/code-interpreter.js";
 
 /** Talks to the sandbox-hosted code interpreter service. */
 export class CodeInterpreterClient {
-  constructor(
-    private readonly transport: Leap0Transport,
-    private readonly sandboxDomain: string,
-  ) {}
+  constructor(private readonly transport: Leap0Transport) {}
 
   private requestPath(sandbox: SandboxRef, path: string): string {
-    return `${sandboxBaseUrl(sandboxIdOf(sandbox), this.sandboxDomain)}${path}`;
+    return `${sandboxBaseUrl(sandboxIdOf(sandbox), this.transport.sandboxDomain)}${path}`;
   }
 
   private async fetchJson<T>(
@@ -31,7 +32,7 @@ export class CodeInterpreterClient {
     init: RequestInit = {},
     options: RequestOptions = {},
   ): Promise<T> {
-    return await this.transport.requestJsonUrl(this.requestPath(sandbox, path), init, options);
+    return (await this.transport.requestJsonUrl<T>(this.requestPath(sandbox, path), init, options))!;
   }
 
   async health(sandbox: SandboxRef, options: RequestOptions = {}): Promise<{ ok: boolean }> {
@@ -110,6 +111,13 @@ export class CodeInterpreterClient {
     );
   }
 
+  private static readonly WIRE_TYPE_MAP: Record<number, StreamEvent["type"]> = {
+    0: StreamEventType.STDOUT,
+    1: StreamEventType.STDERR,
+    2: StreamEventType.EXIT,
+    3: StreamEventType.ERROR,
+  };
+
   async *executeStream(
     sandbox: SandboxRef,
     params: { code: string; language: CodeLanguage; contextId?: string },
@@ -130,15 +138,19 @@ export class CodeInterpreterClient {
       if (!event || typeof event !== "object") {
         throw new Leap0Error("Malformed code execution stream event");
       }
-      const parsed = { ...event } as Record<string, unknown>;
-      if (parsed.envelope === "error") {
-        throw new Leap0Error(typeof parsed.message === "string" ? parsed.message : "Stream error");
+      const record = event as Record<string, unknown>;
+      if (record.envelope === "error") {
+        throw new Leap0Error(typeof record.message === "string" ? record.message : "Stream error");
       }
-      if (parsed.type === 0) parsed.type = StreamEventType.STDOUT;
-      if (parsed.type === 1) parsed.type = StreamEventType.STDERR;
-      if (parsed.type === 2) parsed.type = StreamEventType.EXIT;
-      if (parsed.type === 3) parsed.type = StreamEventType.ERROR;
-      yield parsed as unknown as StreamEvent;
+      const wire = streamEventWireSchema.parse(event);
+      const mappedType = CodeInterpreterClient.WIRE_TYPE_MAP[wire.type];
+      if (!mappedType) {
+        throw new Leap0Error(`Unknown stream event type: ${wire.type}`);
+      }
+      const streamEvent: StreamEvent = { type: mappedType };
+      if (wire.data !== undefined) streamEvent.data = wire.data;
+      if (wire.code !== undefined) streamEvent.code = wire.code;
+      yield streamEvent;
     }
   }
 }

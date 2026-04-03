@@ -22,7 +22,7 @@ test("pty client sends expected request shapes", async () => {
       return session;
     },
   });
-  const client = new PtyClient(transport as never, "sandbox.example.com");
+  const client = new PtyClient(transport as never);
   await client.list("sb-1");
   await client.create("sb-1", { cols: 80, rows: 24, cwd: "/workspace" });
   await client.get("sb-1", "sess-1");
@@ -33,8 +33,9 @@ test("pty client sends expected request shapes", async () => {
   assert.equal(calls[3]?.path, "/v1/sandbox/sb-1/pty/sess-1/resize");
   assert.equal(
     client.websocketUrl("sb-1", "sess-1"),
-    "wss://sb-1.sandbox.example.com/v1/sandbox/sb-1/pty/sess-1/connect",
+    "wss://api.example.com/v1/sandbox/sb-1/pty/sess-1/connect",
   );
+  assert.deepEqual(client.websocketHeaders(), { authorization: "test-api-key" });
 });
 
 test("pty connection sends, receives, and closes websocket data", async () => {
@@ -50,6 +51,9 @@ test("pty connection sends, receives, and closes websocket data", async () => {
     },
     addEventListener(type: string, handler: (event: { data?: unknown }) => void) {
       handlers.set(type, handler);
+    },
+    removeEventListener(type: string) {
+      handlers.delete(type);
     },
   };
   const connection = new PtyConnection(socket as never);

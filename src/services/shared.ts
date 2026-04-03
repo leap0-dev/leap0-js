@@ -13,13 +13,8 @@ export async function withErrorPrefix<T>(prefix: string, fn: () => Promise<T>): 
     return await fn();
   } catch (error) {
     if (error instanceof Leap0Error) {
-      throw new Leap0Error(`${prefix}${error.message}`, {
-        statusCode: error.statusCode,
-        headers: error.headers,
-        body: error.body,
-        retryable: error.retryable,
-        cause: error,
-      });
+      error.message = `${prefix}${error.message}`;
+      throw error;
     }
     throw error;
   }

@@ -9,7 +9,7 @@ test("git client sends expected request shapes", async () => {
     requestJson: async (path: string, init: RequestInit, options: never) => {
       calls.push({ path, init, options });
       if (path.endsWith("/commit"))
-        return { sha: "abc123", result: { output: "ok", exit_code: 0 } };
+        return { result: { output: "ok", exit_code: 0 } };
       return { output: "ok", exit_code: 0 };
     },
   });
@@ -27,7 +27,7 @@ test("git client sends expected request shapes", async () => {
   await client.checkoutBranch("sb-1", "/workspace/repo", "feat");
   await client.deleteBranch("sb-1", "/workspace/repo", "feat");
   await client.add("sb-1", "/workspace/repo", ["a.ts"]);
-  await client.commit("sb-1", "/workspace/repo", "msg");
+  await client.commit("sb-1", "/workspace/repo", "msg", "Test User", "test@example.com");
   await client.push("sb-1", "/workspace/repo");
   await client.pull("sb-1", "/workspace/repo");
 
@@ -38,5 +38,10 @@ test("git client sends expected request shapes", async () => {
   });
   assert.deepEqual(jsonOf(calls[8]!), { path: "/workspace/repo", revision: "HEAD" });
   assert.deepEqual(jsonOf(calls[12]!), { path: "/workspace/repo", files: ["a.ts"] });
-  assert.deepEqual(jsonOf(calls[13]!), { path: "/workspace/repo", message: "msg" });
+  assert.deepEqual(jsonOf(calls[13]!), {
+    path: "/workspace/repo",
+    message: "msg",
+    author: "Test User",
+    email: "test@example.com",
+  });
 });

@@ -14,11 +14,11 @@ export class GitClient {
     body: unknown,
     options: RequestOptions = {},
   ): Promise<T> {
-    return await this.transport.requestJson(
+    return (await this.transport.requestJson<T>(
       `/v1/sandbox/${sandboxIdOf(sandbox)}/git/${endpoint}`,
       { method: "POST", body: jsonBody(body) },
       options,
-    );
+    ))!;
   }
 
   async clone(
@@ -32,8 +32,16 @@ export class GitClient {
   async status(sandbox: SandboxRef, path: string, options?: RequestOptions): Promise<GitResult> {
     return normalize(gitResultSchema, await this.json(sandbox, "status", { path }, options));
   }
-  async branches(sandbox: SandboxRef, path: string, options?: RequestOptions): Promise<GitResult> {
-    return normalize(gitResultSchema, await this.json(sandbox, "branches", { path }, options));
+  async branches(
+    sandbox: SandboxRef,
+    path: string,
+    branchType: "local" | "remote" | "all" = "local",
+    options?: RequestOptions,
+  ): Promise<GitResult> {
+    return normalize(
+      gitResultSchema,
+      await this.json(sandbox, "branches", { path, branch_type: branchType }, options),
+    );
   }
   async diffUnstaged(
     sandbox: SandboxRef,
@@ -55,8 +63,16 @@ export class GitClient {
   async reset(sandbox: SandboxRef, path: string, options?: RequestOptions): Promise<GitResult> {
     return normalize(gitResultSchema, await this.json(sandbox, "reset", { path }, options));
   }
-  async log(sandbox: SandboxRef, path: string, options?: RequestOptions): Promise<GitResult> {
-    return normalize(gitResultSchema, await this.json(sandbox, "log", { path }, options));
+  async log(
+    sandbox: SandboxRef,
+    path: string,
+    maxCount?: number,
+    options?: RequestOptions,
+  ): Promise<GitResult> {
+    return normalize(
+      gitResultSchema,
+      await this.json(sandbox, "log", { path, max_count: maxCount }, options),
+    );
   }
   async show(
     sandbox: SandboxRef,
@@ -95,11 +111,12 @@ export class GitClient {
     sandbox: SandboxRef,
     path: string,
     name: string,
+    force = false,
     options?: RequestOptions,
   ): Promise<GitResult> {
     return normalize(
       gitResultSchema,
-      await this.json(sandbox, "delete-branch", { path, name }, options),
+      await this.json(sandbox, "delete-branch", { path, name, force }, options),
     );
   }
   async add(
@@ -114,11 +131,13 @@ export class GitClient {
     sandbox: SandboxRef,
     path: string,
     message: string,
+    author: string,
+    email: string,
     options?: RequestOptions,
   ): Promise<GitCommitResult> {
     return normalize(
       gitCommitResultSchema,
-      await this.json(sandbox, "commit", { path, message }, options),
+      await this.json(sandbox, "commit", { path, message, author, email }, options),
     );
   }
   async push(sandbox: SandboxRef, path: string, options?: RequestOptions): Promise<GitResult> {

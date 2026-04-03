@@ -8,8 +8,10 @@ export const gitResultSchema = z
   .catchall(z.unknown());
 export type GitResult = z.infer<typeof gitResultSchema>;
 
-export const gitCommitResultSchema = z.object({
-  sha: z.string(),
-  result: gitResultSchema,
-});
+export const gitCommitResultSchema = z
+  .object({
+    sha: z.string().optional(),
+    result: gitResultSchema,
+  })
+  .catchall(z.unknown());
 export type GitCommitResult = z.infer<typeof gitCommitResultSchema>;

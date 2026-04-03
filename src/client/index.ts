@@ -44,17 +44,17 @@ export class Leap0Client {
       initOtel(resolved);
     }
 
-    this.sandboxes = new SandboxesClient(this.transport, resolved.sandboxDomain);
+    this.sandboxes = new SandboxesClient(this.transport);
     this.snapshots = new SnapshotsClient(this.transport);
     this.templates = new TemplatesClient(this.transport);
     this.filesystem = new FilesystemClient(this.transport);
     this.git = new GitClient(this.transport);
     this.process = new ProcessClient(this.transport);
-    this.pty = new PtyClient(this.transport, resolved.sandboxDomain);
+    this.pty = new PtyClient(this.transport);
     this.lsp = new LspClient(this.transport);
     this.ssh = new SshClient(this.transport);
-    this.codeInterpreter = new CodeInterpreterClient(this.transport, resolved.sandboxDomain);
-    this.desktop = new DesktopClient(this.transport, resolved.sandboxDomain);
+    this.codeInterpreter = new CodeInterpreterClient(this.transport);
+    this.desktop = new DesktopClient(this.transport);
   }
 
   /**

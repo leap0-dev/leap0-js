@@ -42,17 +42,14 @@ import { asRecord } from "@/services/shared.js";
 
 /** Drives the desktop sandbox APIs for browser and GUI automation. */
 export class DesktopClient {
-  constructor(
-    private readonly transport: Leap0Transport,
-    private readonly sandboxDomain: string,
-  ) {}
+  constructor(private readonly transport: Leap0Transport) {}
 
   private requestUrl(sandbox: SandboxRef, path: string): string {
-    return `${sandboxBaseUrl(sandboxIdOf(sandbox), this.sandboxDomain)}${path}`;
+    return `${sandboxBaseUrl(sandboxIdOf(sandbox), this.transport.sandboxDomain)}${path}`;
   }
 
   browserUrl(sandbox: SandboxRef): string {
-    return sandboxBaseUrl(sandboxIdOf(sandbox), this.sandboxDomain);
+    return sandboxBaseUrl(sandboxIdOf(sandbox), this.transport.sandboxDomain);
   }
 
   private async requestJson<T>(
@@ -398,12 +395,14 @@ export class DesktopClient {
     const startedAt = Date.now();
     let delayMs = 250;
     while (true) {
-      const status = await this.status(sandbox, { timeout });
+      const elapsedSec = (Date.now() - startedAt) / 1000;
+      if (elapsedSec >= timeout) {
+        throw new Leap0Error("Desktop did not become ready within timeout");
+      }
+      const remaining = Math.max(1, Math.ceil(timeout - elapsedSec));
+      const status = await this.status(sandbox, { timeout: remaining });
       if ((status.items ?? []).every((process) => process.running === true)) {
         return;
-      }
-      if (Date.now() - startedAt > timeout * 1000) {
-        throw new Leap0Error("Desktop did not become ready within timeout");
       }
       await new Promise((resolve) => setTimeout(resolve, delayMs));
       delayMs = Math.min(delayMs * 2, 2000);

@@ -17,11 +17,11 @@ export class LspClient {
     body: unknown,
     options: RequestOptions = {},
   ): Promise<T> {
-    return await this.transport.requestJson(
+    return (await this.transport.requestJson<T>(
       `/v1/sandbox/${sandboxIdOf(sandbox)}/lsp/${endpoint}`,
       { method: "POST", body: jsonBody(body) },
       options,
-    );
+    ))!;
   }
 
   async start(
@@ -55,12 +55,14 @@ export class LspClient {
     languageId: string,
     pathToProject: string,
     uri: string,
+    text: string,
+    version = 1,
     options?: RequestOptions,
   ): Promise<LspResponse> {
     return await this.json(
       sandbox,
       "did-open",
-      { language_id: languageId, path_to_project: pathToProject, uri },
+      { language_id: languageId, path_to_project: pathToProject, uri, text, version },
       options,
     );
   }
@@ -69,9 +71,11 @@ export class LspClient {
     languageId: string,
     pathToProject: string,
     path: string,
+    text: string,
+    version = 1,
     options?: RequestOptions,
   ): Promise<LspResponse> {
-    return await this.didOpen(sandbox, languageId, pathToProject, toFileUri(path), options);
+    return await this.didOpen(sandbox, languageId, pathToProject, toFileUri(path), text, version, options);
   }
   async didClose(
     sandbox: SandboxRef,

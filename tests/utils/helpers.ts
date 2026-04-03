@@ -38,6 +38,9 @@ export function createRecordedTransport(overrides: Record<string, unknown> = {})
       return Promise.resolve(new Response(null, { status: 204 }));
     },
     headers: (headers?: HeadersInit) => new Headers(headers),
+    baseUrl: "https://api.example.com",
+    sandboxDomain: "sandbox.example.com",
+    apiKey: "test-api-key",
     ...overrides,
   };
 

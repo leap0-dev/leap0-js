@@ -58,7 +58,7 @@ export const sandboxDataSchema = z
     vcpu: z.number(),
     memoryMib: z.number(),
     diskMib: z.number(),
-    autoPause: z.boolean(),
+    autoPause: z.boolean().optional(),
     networkPolicy: networkPolicySchema.optional(),
     createdAt: z.string(),
   })

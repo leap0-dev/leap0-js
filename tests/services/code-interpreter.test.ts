@@ -18,7 +18,7 @@ test("code interpreter client sends expected request shapes", async () => {
       return { id: "ctx-1", language: 1, cwd: "/workspace" };
     },
   });
-  const client = new CodeInterpreterClient(transport as never, "sandbox.example.com");
+  const client = new CodeInterpreterClient(transport as never);
   await client.health("sb-1");
   await client.createContext("sb-1", "python");
   await client.listContexts("sb-1");
@@ -47,7 +47,7 @@ test("code interpreter stream parses SSE and maps event types", async () => {
     requestJsonUrl: (url: string) =>
       Promise.reject(new Leap0Error(`Code interpreter request failed: ${url}`)),
   });
-  const client = new CodeInterpreterClient(transport as never, "sandbox.example.com");
+  const client = new CodeInterpreterClient(transport as never);
   const events: Array<{ type: string; data: unknown }> = [];
   for await (const event of client.executeStream("sb-1", {
     code: "print(1)",

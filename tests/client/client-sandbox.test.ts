@@ -46,12 +46,11 @@ test("Sandbox binds service methods to itself", async () => {
         id: "sb-1",
         templateId: "tpl-1",
         state: "running",
-        vcpu: 1,
-        memoryMib: 1024,
+        vcpu: 2,
+        memoryMib: 2048,
         diskMib: 4096,
         autoPause: false,
         createdAt: "2026-01-01T00:00:00Z",
-        refreshed: true,
       }),
       pause: async () => ({
         id: "sb-1",
@@ -89,8 +88,10 @@ test("Sandbox binds service methods to itself", async () => {
     createdAt: "2026-01-01T00:00:00Z",
   });
   assert.equal(await sandbox.filesystem.readFile("/tmp/test.txt"), "sb-1:/tmp/test.txt");
+  assert.equal(sandbox.vcpu, 1);
   await sandbox.refresh();
-  assert.equal((sandbox as { refreshed?: boolean }).refreshed, true);
+  assert.equal(sandbox.vcpu, 2);
+  assert.equal(sandbox.memoryMib, 2048);
   await sandbox.pause();
   assert.equal(sandbox.state, "paused");
   assert.equal(sandbox.invokeUrl("/healthz", 3000), "invoke:sb-1:/healthz:3000");

@@ -78,14 +78,14 @@ export type CodeExecutionResult = z.infer<typeof codeExecutionResultSchema>;
 
 export const streamEventWireSchema = z.object({
   type: z.number(),
-  data: z.string().optional(),
+  data: z.union([z.string(), z.number()]).optional(),
   code: z.number().optional(),
 });
 export type StreamEventWire = z.infer<typeof streamEventWireSchema>;
 
 export const streamEventSchema = z.object({
   type: streamEventTypeSchema,
-  data: z.string().optional(),
+  data: z.union([z.string(), z.number()]).optional(),
   code: z.number().optional(),
 });
 export type StreamEvent = z.infer<typeof streamEventSchema>;

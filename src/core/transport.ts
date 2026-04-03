@@ -20,8 +20,17 @@ type BodyLike = BodyInit | null;
  */
 export class Leap0Transport {
   private closed = false;
+  private readonly inflight = new Set<AbortController>();
 
-  constructor(private readonly config: Leap0ConfigResolved) {}
+  readonly baseUrl: string;
+  readonly sandboxDomain: string;
+  readonly apiKey: string;
+
+  constructor(private readonly config: Leap0ConfigResolved) {
+    this.baseUrl = config.baseUrl;
+    this.sandboxDomain = config.sandboxDomain;
+    this.apiKey = config.apiKey;
+  }
 
   /**
    * Builds request headers with auth and SDK metadata.
@@ -32,7 +41,7 @@ export class Leap0Transport {
    * Returns:
    *   The final header set.
    */
-  headers(extra?: HeadersInit): Headers {
+  private headers(extra?: HeadersInit): Headers {
     const headers = new Headers(extra);
     headers.set(
       this.config.authHeader,
@@ -52,6 +61,10 @@ export class Leap0Transport {
    */
   async close(): Promise<void> {
     this.closed = true;
+    for (const controller of this.inflight) {
+      controller.abort();
+    }
+    this.inflight.clear();
   }
 
   /**
@@ -114,6 +127,7 @@ export class Leap0Transport {
     }
 
     const controller = new AbortController();
+    this.inflight.add(controller);
     const timeoutMs = (options.timeout ?? this.config.timeout) * 1000;
     const timer = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -150,6 +164,7 @@ export class Leap0Transport {
       });
     } finally {
       clearTimeout(timer);
+      this.inflight.delete(controller);
     }
   }
 
@@ -162,20 +177,20 @@ export class Leap0Transport {
    *   options: Leap0 request options such as timeout and query params.
    *
    * Returns:
-   *   The parsed JSON response.
+   *   The parsed JSON response, or undefined for 204 No Content.
    */
   async requestJson<T>(
     path: string,
     init: RequestInit = {},
     options: RequestOptions = {},
-  ): Promise<T> {
+  ): Promise<T | undefined> {
     const headers = new Headers(init.headers);
     if (init.body != null && !headers.has("content-type") && !(init.body instanceof FormData)) {
       headers.set("content-type", "application/json");
     }
     const response = await this.request(path, { ...init, headers }, options);
     if (response.status === 204) {
-      return undefined as T;
+      return undefined;
     }
     return (await response.json()) as T;
   }
@@ -189,20 +204,20 @@ export class Leap0Transport {
    *   options: Leap0 request options such as timeout and query params.
    *
    * Returns:
-   *   The parsed JSON response.
+   *   The parsed JSON response, or undefined for 204 No Content.
    */
   async requestJsonUrl<T>(
     url: string,
     init: RequestInit = {},
     options: RequestOptions = {},
-  ): Promise<T> {
+  ): Promise<T | undefined> {
     const headers = new Headers(init.headers);
     if (init.body != null && !headers.has("content-type") && !(init.body instanceof FormData)) {
       headers.set("content-type", "application/json");
     }
     const response = await this.requestUrl(url, { ...init, headers }, options);
     if (response.status === 204) {
-      return undefined as T;
+      return undefined;
     }
     return (await response.json()) as T;
   }
@@ -316,7 +331,7 @@ export class Leap0Transport {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+      buffer += decoder.decode(value, { stream: true }).replace(/\r\n?/g, "\n");
 
       while (true) {
         const boundary = buffer.indexOf("\n\n");

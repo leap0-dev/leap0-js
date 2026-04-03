@@ -27,6 +27,7 @@ test("filesystem client sends expected request shapes", async () => {
       if (path.endsWith("/edit-files")) return { items: [] };
       if (path.endsWith("/tree")) return { items: [] };
       if (path.endsWith("/exists")) return { exists: true };
+      if (path.endsWith("/glob")) return { items: [] };
       return { items: [] };
     },
   });
@@ -54,7 +55,7 @@ test("filesystem client sends expected request shapes", async () => {
   assert.equal(new Headers(calls[3]!.init.headers).get("content-type"), "text/plain");
   assert.equal(calls[3]?.options.query?.path, "/tmp/a.txt");
   assert.equal(new Headers(calls[4]!.init.headers).get("content-type"), "application/octet-stream");
-  assert.equal(calls[5]?.options.query?.head, 10);
+  assert.deepEqual(jsonOf(calls[5]!), { path: "/tmp/a.txt", head: 10 });
   assert.deepEqual(jsonOf(calls[11]!), {
     path: "/tmp/a.txt",
     edits: [{ find: "a", replace: "b" }],

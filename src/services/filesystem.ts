@@ -50,10 +50,15 @@ export class FilesystemClient {
     return normalize(fileInfoSchema, data);
   }
 
-  async mkdir(sandbox: SandboxRef, path: string, options: RequestOptions = {}): Promise<void> {
+  async mkdir(
+    sandbox: SandboxRef,
+    path: string,
+    recursive = false,
+    options: RequestOptions = {},
+  ): Promise<void> {
     await this.transport.request(
       `/v1/sandbox/${sandboxIdOf(sandbox)}/filesystem/mkdir`,
-      { method: "POST", body: jsonBody({ path }) },
+      { method: "POST", body: jsonBody({ path, recursive }) },
       options,
     );
   }
@@ -100,8 +105,8 @@ export class FilesystemClient {
   ): Promise<string> {
     return await this.transport.requestText(
       `/v1/sandbox/${sandboxIdOf(sandbox)}/filesystem/read-file`,
-      { method: "GET" },
-      { ...options, query: { path, ...params } },
+      { method: "POST", body: jsonBody({ path, ...params }) },
+      options,
     );
   }
 
@@ -112,15 +117,20 @@ export class FilesystemClient {
   ): Promise<Uint8Array> {
     return await this.transport.requestBytes(
       `/v1/sandbox/${sandboxIdOf(sandbox)}/filesystem/read-file`,
-      { method: "GET" },
-      { ...options, query: { path } },
+      { method: "POST", body: jsonBody({ path }) },
+      options,
     );
   }
 
-  async delete(sandbox: SandboxRef, path: string, options: RequestOptions = {}): Promise<void> {
+  async delete(
+    sandbox: SandboxRef,
+    path: string,
+    recursive = false,
+    options: RequestOptions = {},
+  ): Promise<void> {
     await this.transport.request(
       `/v1/sandbox/${sandboxIdOf(sandbox)}/filesystem/delete`,
-      { method: "POST", body: jsonBody({ path }) },
+      { method: "POST", body: jsonBody({ path, recursive }) },
       options,
     );
   }
@@ -144,22 +154,24 @@ export class FilesystemClient {
     pattern: string,
     options: RequestOptions = {},
   ): Promise<string[]> {
-    return await this.transport.requestJson(
+    const data = await this.transport.requestJson(
       `/v1/sandbox/${sandboxIdOf(sandbox)}/filesystem/glob`,
       { method: "POST", body: jsonBody({ path, pattern }) },
       options,
     );
+    return z.object({ items: z.array(z.string()) }).parse(data).items;
   }
 
   async grep(
     sandbox: SandboxRef,
     path: string,
     pattern: string,
+    include?: string,
     options: RequestOptions = {},
   ): Promise<SearchMatch[]> {
     const data = await this.transport.requestJson<SearchMatch[]>(
       `/v1/sandbox/${sandboxIdOf(sandbox)}/filesystem/grep`,
-      { method: "POST", body: jsonBody({ path, pattern }) },
+      { method: "POST", body: jsonBody({ path, pattern, include }) },
       options,
     );
     return normalize(z.object({ items: z.array(searchMatchSchema) }), data).items;
@@ -184,15 +196,16 @@ export class FilesystemClient {
     files: Array<{ path: string; edit: FileEdit }>,
     options: RequestOptions = {},
   ): Promise<EditFilesResult> {
-    const firstEdit = files[0]?.edit;
     const data = await this.transport.requestJson<EditFilesResult>(
       `/v1/sandbox/${sandboxIdOf(sandbox)}/filesystem/edit-files`,
       {
         method: "POST",
         body: jsonBody({
-          files: files.map((file) => file.path),
-          find: firstEdit?.find,
-          replace: firstEdit?.replace,
+          files: files.map((file) => ({
+            path: file.path,
+            find: file.edit.find,
+            replace: file.edit.replace,
+          })),
         }),
       },
       options,
@@ -231,11 +244,12 @@ export class FilesystemClient {
     path: string,
     options: RequestOptions = {},
   ): Promise<{ exists: boolean }> {
-    return await this.transport.requestJson(
+    const data = await this.transport.requestJson(
       `/v1/sandbox/${sandboxIdOf(sandbox)}/filesystem/exists`,
       { method: "POST", body: jsonBody({ path }) },
       options,
     );
+    return z.object({ exists: z.boolean() }).parse(data);
   }
 
   async tree(
