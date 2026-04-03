@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 
+import { Leap0WebSocketError } from "@/core/errors.js";
 import { PtyClient, PtyConnection } from "@/services/pty.js";
 import { createRecordedTransport } from "@tests/utils/helpers.ts";
 
@@ -64,4 +65,29 @@ test("pty connection sends, receives, and closes websocket data", async () => {
   assert.deepEqual(Array.from(await recv), Array.from(new TextEncoder().encode("world")));
   connection.close();
   assert.equal(closed, true);
+});
+
+test("pty connection rejects recv when websocket closes first", async () => {
+  const handlers = new Map<string, (event?: { data?: unknown }) => void>();
+  const socket = {
+    send() {},
+    close() {},
+    addEventListener(type: string, handler: (event?: { data?: unknown }) => void) {
+      handlers.set(type, handler);
+    },
+    removeEventListener(type: string) {
+      handlers.delete(type);
+    },
+  };
+  const connection = new PtyConnection(socket as never);
+
+  const recv = connection.recv();
+  handlers.get("close")?.();
+
+  await assert.rejects(recv, (error: unknown) => {
+    assert.ok(error instanceof Leap0WebSocketError);
+    assert.match(error.message, /PTY websocket closed/);
+    return true;
+  });
+  assert.equal(handlers.size, 0);
 });

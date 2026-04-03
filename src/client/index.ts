@@ -48,7 +48,7 @@ export class Leap0Client {
     const resolved = resolveConfig(config);
     this.transport = new Leap0Transport(resolved);
     if (resolved.sdkOtelEnabled) {
-      initOtel(resolved);
+      initOtel();
     }
 
     const wrapSandbox = (data: import("@/models/index.js").SandboxData) => new Sandbox(this, data);

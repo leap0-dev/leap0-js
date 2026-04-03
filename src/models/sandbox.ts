@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+import {
+  DEFAULT_MEMORY_MIB,
+  DEFAULT_TEMPLATE_NAME,
+  DEFAULT_TIMEOUT_MIN,
+  DEFAULT_VCPU,
+} from "@/config/constants.js";
+
 export const NetworkPolicyMode = {
   ALLOW_ALL: "allow-all",
   DENY_ALL: "deny-all",
@@ -77,6 +84,54 @@ export const createSandboxParamsSchema = z.object({
   networkPolicy: networkPolicySchema.optional(),
 });
 export type CreateSandboxParams = z.infer<typeof createSandboxParamsSchema>;
+
+export const createSandboxRuntimeParamsSchema = z
+  .object(
+    {
+      templateName: z.preprocess(
+        (value) => value ?? DEFAULT_TEMPLATE_NAME,
+        z
+          .string({ invalid_type_error: "templateName must be a string" })
+          .trim()
+          .min(1, "templateName must be 1-64 characters")
+          .max(64, "templateName must be 1-64 characters"),
+      ),
+      vcpu: z.preprocess(
+        (value) => value ?? DEFAULT_VCPU,
+        z
+          .number({ invalid_type_error: "vcpu must be between 1 and 8" })
+          .int("vcpu must be between 1 and 8")
+          .min(1, "vcpu must be between 1 and 8")
+          .max(8, "vcpu must be between 1 and 8"),
+      ),
+      memoryMib: z.preprocess(
+        (value) => value ?? DEFAULT_MEMORY_MIB,
+        z
+          .number({ invalid_type_error: "memoryMib must be even and between 512 and 8192" })
+          .int("memoryMib must be even and between 512 and 8192")
+          .min(512, "memoryMib must be even and between 512 and 8192")
+          .max(8192, "memoryMib must be even and between 512 and 8192")
+          .refine((value) => value % 2 === 0, {
+            message: "memoryMib must be even and between 512 and 8192",
+          }),
+      ),
+      timeoutMin: z.preprocess(
+        (value) => value ?? DEFAULT_TIMEOUT_MIN,
+        z
+          .number({ invalid_type_error: "timeoutMin must be between 1 and 480" })
+          .int("timeoutMin must be between 1 and 480")
+          .min(1, "timeoutMin must be between 1 and 480")
+          .max(480, "timeoutMin must be between 1 and 480"),
+      ),
+      autoPause: z.boolean().optional(),
+      otelExport: z.boolean().optional(),
+      telemetry: z.boolean().optional(),
+      envVars: z.record(z.string(), z.string()).optional(),
+      networkPolicy: networkPolicySchema.optional(),
+    },
+    { invalid_type_error: "params must be an object" },
+  )
+  .passthrough();
 
 type NetworkPolicyWire = {
   mode: NetworkPolicyMode;

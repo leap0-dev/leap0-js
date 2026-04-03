@@ -29,6 +29,20 @@ export class LspClient {
     return result;
   }
 
+  private normalizeDidOpenArgs(
+    textOrOptions?: string | RequestOptions,
+    versionOrOptions?: number | RequestOptions,
+    options?: RequestOptions,
+  ): { text: string | undefined; version: number; options: RequestOptions | undefined } {
+    if (textOrOptions && typeof textOrOptions === "object") {
+      return { text: undefined, version: 1, options: textOrOptions };
+    }
+    if (versionOrOptions && typeof versionOrOptions === "object") {
+      return { text: textOrOptions, version: 1, options: versionOrOptions };
+    }
+    return { text: textOrOptions, version: versionOrOptions ?? 1, options };
+  }
+
   async start(
     sandbox: SandboxRef,
     languageId: string,
@@ -60,10 +74,15 @@ export class LspClient {
     languageId: string,
     pathToProject: string,
     uri: string,
-    text?: string,
-    version = 1,
+    textOrOptions?: string | RequestOptions,
+    versionOrOptions?: number | RequestOptions,
     options?: RequestOptions,
   ): Promise<void> {
+    const { text, version, options: normalizedOptions } = this.normalizeDidOpenArgs(
+      textOrOptions,
+      versionOrOptions,
+      options,
+    );
     const payload: Record<string, unknown> = {
       language_id: languageId,
       path_to_project: pathToProject,
@@ -74,7 +93,7 @@ export class LspClient {
     await this.transport.request(
       `/v1/sandbox/${sandboxIdOf(sandbox)}/lsp/did-open`,
       { method: "POST", body: jsonBody(payload) },
-      options,
+      normalizedOptions,
     );
   }
   async didOpenPath(
@@ -82,11 +101,19 @@ export class LspClient {
     languageId: string,
     pathToProject: string,
     path: string,
-    text?: string,
-    version = 1,
+    textOrOptions?: string | RequestOptions,
+    versionOrOptions?: number | RequestOptions,
     options?: RequestOptions,
   ): Promise<void> {
-    await this.didOpen(sandbox, languageId, pathToProject, toFileUri(path), text, version, options);
+    await this.didOpen(
+      sandbox,
+      languageId,
+      pathToProject,
+      toFileUri(path),
+      textOrOptions,
+      versionOrOptions,
+      options,
+    );
   }
   async didClose(
     sandbox: SandboxRef,

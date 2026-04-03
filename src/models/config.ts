@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+export const apiKeyRequiredSchema = z.string().trim().min(1, "API key is required");
+export const authHeaderSchema = z.string().trim().min(1, "authHeader cannot be empty");
+export const timeoutSchema = z.number().positive("timeout must be a positive number");
+
 export const leap0ConfigInputSchema = z.object({
   apiKey: z.string().optional(),
   baseUrl: z.string().optional(),
@@ -15,8 +19,8 @@ export const leap0ConfigResolvedSchema = z.object({
   apiKey: z.string(),
   baseUrl: z.string(),
   sandboxDomain: z.string(),
-  timeout: z.number().positive(),
-  authHeader: z.string(),
+  timeout: timeoutSchema,
+  authHeader: authHeaderSchema,
   bearer: z.boolean(),
   sdkOtelEnabled: z.boolean(),
 });

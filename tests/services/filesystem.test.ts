@@ -58,6 +58,7 @@ test("filesystem client sends expected request shapes", async () => {
   assert.equal(new Headers(calls[3]!.init.headers).get("content-type"), "application/octet-stream");
   assert.equal(calls[3]?.options.query?.path, "/tmp/a.txt");
   assert.equal(new Headers(calls[4]!.init.headers).get("content-type"), "application/octet-stream");
+  assert.equal(ArrayBuffer.isView(calls[4]!.init.body), true);
   assert.deepEqual(jsonOf(calls[5]!), { path: "/tmp/a.txt", head: 10 });
   assert.deepEqual(jsonOf(calls[8]!), { path: "/tmp/a.txt", mode: "0755" });
   assert.deepEqual(jsonOf(calls[9]!), { path: "/tmp/b.txt", owner: "alice", group: "staff" });
@@ -79,4 +80,15 @@ test("filesystem client sends expected request shapes", async () => {
   assert.equal(typeof fileExists, "boolean");
   assert.equal(fileExists, true);
   assert.deepEqual(jsonOf(calls[18]!), { path: "/workspace", max_depth: 2 });
+});
+
+test("filesystem setPermissions rejects empty updates before transport", async () => {
+  const { transport, calls } = createRecordedTransport();
+  const client = new FilesystemClient(transport as never);
+
+  await assert.rejects(
+    () => client.setPermissions("sb-1", "/tmp/a.txt"),
+    /setPermissions requires at least one of mode, owner, or group/,
+  );
+  assert.equal(calls.length, 0);
 });

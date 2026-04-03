@@ -76,3 +76,13 @@ export const editFilesResultSchema = z.object({
   items: z.array(editResultSchema),
 });
 export type EditFilesResult = z.infer<typeof editFilesResultSchema>;
+
+export const setPermissionsParamsSchema = z
+  .object({
+    mode: z.string().optional(),
+    owner: z.string().optional(),
+    group: z.string().optional(),
+  })
+  .refine((params) => params.mode !== undefined || params.owner !== undefined || params.group !== undefined, {
+    message: "setPermissions requires at least one of mode, owner, or group",
+  });

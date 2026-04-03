@@ -59,3 +59,15 @@ test("git client sends expected request shapes", async () => {
     email: "test@example.com",
   });
 });
+
+test("git client throws a clear error for empty json responses", async () => {
+  const { transport } = createRecordedTransport({
+    requestJson: async () => undefined,
+  });
+  const client = new GitClient(transport as never);
+
+  await assert.rejects(
+    () => client.status("sb-1", "/workspace/repo"),
+    /Empty response from \/v1\/sandbox\/sb-1\/git\/status for sandbox sb-1/,
+  );
+});

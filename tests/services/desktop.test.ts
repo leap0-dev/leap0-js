@@ -92,3 +92,26 @@ test("desktop waitUntilReady treats count-only updates as ready", async () => {
 
   await client.waitUntilReady("sb-1", 1);
 });
+
+test("desktop input methods require a real boolean ok response", async () => {
+  const { transport } = createRecordedTransport({
+    requestJsonUrl: async () => ({ ok: "false" }),
+  });
+  const client = new DesktopClient(transport as never);
+
+  await assert.rejects(() => client.typeText("sb-1", "hello"));
+  await assert.rejects(() => client.pressKey("sb-1", "Enter"));
+  await assert.rejects(() => client.hotkey("sb-1", ["Meta", "K"]));
+});
+
+test("desktop waitUntilReady ignores zero total count updates", async () => {
+  const { transport } = createRecordedTransport({
+    streamJsonUrl: async function* () {
+      yield { items: [], running: 0, total: 0 };
+      yield { items: [{ name: "x11vnc", running: true }], running: 1, total: 1 };
+    },
+  });
+  const client = new DesktopClient(transport as never);
+
+  await client.waitUntilReady("sb-1", 1);
+});

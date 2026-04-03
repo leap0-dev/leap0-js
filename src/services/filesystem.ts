@@ -18,6 +18,7 @@ import {
   fileInfoSchema,
   lsResultSchema,
   searchMatchSchema,
+  setPermissionsParamsSchema,
   treeResultSchema,
 } from "@/models/filesystem.js";
 import { sandboxIdOf } from "@/core/utils.js";
@@ -102,7 +103,7 @@ export class FilesystemClient {
       {
         method: "POST",
         headers: { "content-type": "application/octet-stream" },
-        body: Buffer.from(content),
+        body: content as BodyInit,
       },
       { ...options, query },
     );
@@ -236,12 +237,13 @@ export class FilesystemClient {
     params: { mode?: string; owner?: string; group?: string } = {},
     options: RequestOptions = {},
   ): Promise<void> {
+    const parsed = setPermissionsParamsSchema.parse(params);
     await this.transport.request(
       this.fsPath(sandbox, "set-permissions"),
       {
         method: "POST",
         body: jsonBody(
-          compact({ path, mode: params.mode, owner: params.owner, group: params.group }),
+          compact({ path, mode: parsed.mode, owner: parsed.owner, group: parsed.group }),
         ),
       },
       options,

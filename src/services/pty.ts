@@ -24,6 +24,7 @@ export class PtyConnection {
       const cleanup = () => {
         this.socket.removeEventListener("message", onMessage);
         this.socket.removeEventListener("error", onError);
+        this.socket.removeEventListener("close", onClose);
       };
       const onMessage = (event: MessageEvent) => {
         cleanup();
@@ -45,8 +46,13 @@ export class PtyConnection {
         cleanup();
         reject(new Leap0WebSocketError("PTY websocket error"));
       };
+      const onClose = () => {
+        cleanup();
+        reject(new Leap0WebSocketError("PTY websocket closed"));
+      };
       this.socket.addEventListener("message", onMessage, { once: true });
       this.socket.addEventListener("error", onError, { once: true });
+      this.socket.addEventListener("close", onClose, { once: true });
     });
   }
 

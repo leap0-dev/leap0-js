@@ -24,11 +24,16 @@ export class GitClient {
     body: unknown,
     options: RequestOptions = {},
   ): Promise<T> {
-    return (await this.transport.requestJson<T>(
-      `/v1/sandbox/${sandboxIdOf(sandbox)}/git/${endpoint}`,
+    const path = `/v1/sandbox/${sandboxIdOf(sandbox)}/git/${endpoint}`;
+    const result = await this.transport.requestJson<T>(
+      path,
       { method: "POST", body: jsonBody(body) },
       options,
-    ))!;
+    );
+    if (result === undefined) {
+      throw new Error(`Empty response from ${path} for sandbox ${sandboxIdOf(sandbox)}`);
+    }
+    return result;
   }
 
   async clone(

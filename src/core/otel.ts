@@ -27,10 +27,8 @@ export function getTracer() {
 /**
  * Initializes process-wide OpenTelemetry tracer and meter providers when missing.
  *
- * Args:
- *   config: Resolved SDK configuration.
  */
-export function initOtel(_config: Leap0ConfigResolved): void {
+export function initOtel(): void {
   const resource = resourceFromAttributes({
     [ATTR_SERVICE_NAME]: TRACER_NAME,
     [ATTR_SERVICE_VERSION]: SDK_VERSION,

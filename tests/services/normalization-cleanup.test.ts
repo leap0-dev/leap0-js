@@ -35,6 +35,36 @@ test("template client normalizes created_at", async () => {
   });
 });
 
+test("template client validates and normalizes rename responses", async () => {
+  const { transport, calls } = createRecordedTransport({
+    requestJson: async (path: string, init: RequestInit, options: never) => {
+      calls.push({ path, init, options });
+      return {
+        id: "tpl-1",
+        name: "renamed",
+        digest: "sha256:def",
+        image_config: { entrypoint: ["python"], cmd: ["app.py"] },
+        is_system: false,
+        created_at: "2026-01-01T00:00:00Z",
+      };
+    },
+  });
+
+  const template = await new TemplatesClient(transport as never).rename("tpl-1", { name: "renamed" });
+
+  assert.equal(template.name, "renamed");
+  assert.equal(template.createdAt, "2026-01-01T00:00:00Z");
+  assert.equal(calls[0]?.path, "/v1/template/tpl-1");
+  assert.deepEqual(jsonOf(calls[0]!), { name: "renamed" });
+});
+
+test("template client reuses name validation for rename", async () => {
+  const { transport } = createRecordedTransport();
+  const client = new TemplatesClient(transport as never);
+
+  await assert.rejects(() => client.rename("tpl-1", { name: "system/test" }), /name must be non-empty/);
+});
+
 test("ssh client normalizes expires_at", async () => {
   const { transport } = createRecordedTransport({
     requestJson: async () => ({

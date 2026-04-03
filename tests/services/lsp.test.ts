@@ -48,3 +48,18 @@ test("lsp client throws a clear error for empty json responses", async () => {
     /Empty response from \/v1\/sandbox\/sb-1\/lsp\/start/,
   );
 });
+
+test("lsp didOpenPath keeps compatibility with options in the old slot", async () => {
+  const { transport, calls } = createRecordedTransport();
+  const client = new LspClient(transport as never);
+
+  await client.didOpenPath("sb-1", "typescript", "/workspace", "/workspace/a.ts", { timeout: 5 });
+
+  assert.deepEqual(jsonOf(calls[0]!), {
+    language_id: "typescript",
+    path_to_project: "/workspace",
+    uri: "file:///workspace/a.ts",
+    version: 1,
+  });
+  assert.deepEqual(calls[0]?.options, { timeout: 5 });
+});

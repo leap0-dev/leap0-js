@@ -37,12 +37,12 @@ test("Leap0Client wires services and supports direct access", async () => {
   } finally {
     client.sandboxes.get = originalGet;
     client.sandboxes.create = originalCreate;
-    await client.close();
     if (originalApiKey === undefined) {
       delete process.env.LEAP0_API_KEY;
     } else {
       process.env.LEAP0_API_KEY = originalApiKey;
     }
+    await client.close();
   }
 });
 

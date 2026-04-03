@@ -40,6 +40,8 @@ import {
 } from "@/models/desktop.js";
 import { asRecord } from "@/services/shared.js";
 
+const desktopOkResponseSchema = z.object({ ok: z.boolean() });
+
 /** Drives the desktop sandbox APIs for browser and GUI automation. */
 export class DesktopClient {
   constructor(private readonly transport: Leap0Transport) {}
@@ -202,28 +204,28 @@ export class DesktopClient {
     );
   }
   async typeText(sandbox: SandboxRef, text: string, options?: RequestOptions): Promise<boolean> {
-    const data = (await this.transport.requestJsonUrl(
+    const data = await this.transport.requestJsonUrl(
       this.requestUrl(sandbox, "/api/input/type"),
       { method: "POST", body: jsonBody({ text }) },
       options,
-    )) as Record<string, unknown> | undefined;
-    return Boolean(data?.ok);
+    );
+    return normalize(desktopOkResponseSchema, data).ok;
   }
   async pressKey(sandbox: SandboxRef, key: string, options?: RequestOptions): Promise<boolean> {
-    const data = (await this.transport.requestJsonUrl(
+    const data = await this.transport.requestJsonUrl(
       this.requestUrl(sandbox, "/api/input/press"),
       { method: "POST", body: jsonBody({ key }) },
       options,
-    )) as Record<string, unknown> | undefined;
-    return Boolean(data?.ok);
+    );
+    return normalize(desktopOkResponseSchema, data).ok;
   }
   async hotkey(sandbox: SandboxRef, keys: string[], options?: RequestOptions): Promise<boolean> {
-    const data = (await this.transport.requestJsonUrl(
+    const data = await this.transport.requestJsonUrl(
       this.requestUrl(sandbox, "/api/input/hotkey"),
       { method: "POST", body: jsonBody({ keys }) },
       options,
-    )) as Record<string, unknown> | undefined;
-    return Boolean(data?.ok);
+    );
+    return normalize(desktopOkResponseSchema, data).ok;
   }
   async recordingStatus(
     sandbox: SandboxRef,
@@ -415,6 +417,7 @@ export class DesktopClient {
           if (
             typeof status.running === "number" &&
             typeof status.total === "number" &&
+            status.total > 0 &&
             status.running >= status.total
           ) {
             return;

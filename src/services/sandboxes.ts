@@ -1,14 +1,14 @@
 import {
-  DEFAULT_MEMORY_MIB,
-  DEFAULT_TEMPLATE_NAME,
-  DEFAULT_TIMEOUT_MIN,
-  DEFAULT_VCPU,
   OTEL_EXPORTER_OTLP_ENDPOINT,
   OTEL_EXPORTER_OTLP_HEADERS,
 } from "@/config/constants.js";
 import { Leap0Error } from "@/core/errors.js";
 import { normalize } from "@/core/normalize.js";
-import { sandboxDataSchema, toNetworkPolicyWire } from "@/models/sandbox.js";
+import {
+  createSandboxRuntimeParamsSchema,
+  sandboxDataSchema,
+  toNetworkPolicyWire,
+} from "@/models/sandbox.js";
 import type {
   CreateSandboxParams,
   RequestOptions,
@@ -60,7 +60,8 @@ export type SandboxFactory<T> = (data: SandboxData) => T;
 export class SandboxesClient<T = SandboxData> {
   private readonly sandboxFactory?: SandboxFactory<T>;
 
-  constructor(transport: Leap0Transport, sandboxFactory?: SandboxFactory<T>);
+  constructor(transport: Leap0Transport);
+  constructor(transport: Leap0Transport, sandboxFactory: SandboxFactory<T>);
   constructor(
     private readonly transport: Leap0Transport,
     sandboxFactory?: SandboxFactory<T>,
@@ -74,36 +75,21 @@ export class SandboxesClient<T = SandboxData> {
 
   /** Creates a sandbox from a template and resource config. */
   async create(params: CreateSandboxParams = {}, options: RequestOptions = {}): Promise<T> {
-    const templateName = (params.templateName ?? DEFAULT_TEMPLATE_NAME).trim();
-    const vcpu = params.vcpu ?? DEFAULT_VCPU;
-    const memoryMib = params.memoryMib ?? DEFAULT_MEMORY_MIB;
-    const timeoutMin = params.timeoutMin ?? DEFAULT_TIMEOUT_MIN;
-
-    if (!templateName || templateName.length > 64)
-      throw new Leap0Error("templateName must be 1-64 characters");
-    if (!Number.isInteger(vcpu) || vcpu < 1 || vcpu > 8)
-      throw new Leap0Error("vcpu must be between 1 and 8");
-    if (
-      !Number.isInteger(memoryMib) ||
-      memoryMib < 512 ||
-      memoryMib > 8192 ||
-      memoryMib % 2 !== 0
-    ) {
-      throw new Leap0Error("memoryMib must be even and between 512 and 8192");
+    const parsedParams = createSandboxRuntimeParamsSchema.safeParse(params);
+    if (!parsedParams.success) {
+      throw new Leap0Error(parsedParams.error.issues[0]?.message ?? "Invalid sandbox parameters");
     }
-    if (!Number.isInteger(timeoutMin) || timeoutMin < 1 || timeoutMin > 480) {
-      throw new Leap0Error("timeoutMin must be between 1 and 480");
-    }
+    const normalizedParams = parsedParams.data;
 
-    const effectiveOtelExport = params.otelExport ?? Boolean(params.telemetry);
+    const effectiveOtelExport = normalizedParams.otelExport ?? Boolean(normalizedParams.telemetry);
     const payload = {
-      template_name: templateName,
-      vcpu,
-      memory_mib: memoryMib,
-      timeout_min: timeoutMin,
-      auto_pause: params.autoPause ?? false,
-      env_vars: injectOtelEnv(params.envVars, effectiveOtelExport),
-      network_policy: toNetworkPolicyWire(params.networkPolicy),
+      template_name: normalizedParams.templateName,
+      vcpu: normalizedParams.vcpu,
+      memory_mib: normalizedParams.memoryMib,
+      timeout_min: normalizedParams.timeoutMin,
+      auto_pause: normalizedParams.autoPause ?? false,
+      env_vars: injectOtelEnv(normalizedParams.envVars, effectiveOtelExport),
+      network_policy: toNetworkPolicyWire(normalizedParams.networkPolicy),
     };
 
     return withErrorPrefix("Failed to create sandbox: ", async () => {

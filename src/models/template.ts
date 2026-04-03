@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+export const TEMPLATE_NAME_ERROR_MESSAGE =
+  "name must be non-empty, <= 64 chars, contain no whitespace, and not start with system/";
+export const TEMPLATE_URI_ERROR_MESSAGE = "uri must be non-empty and <= 500 chars";
+
 export const RegistryCredentialType = {
   BASIC: "basic",
   AWS: "aws",
@@ -83,7 +87,30 @@ export const createTemplateParamsSchema = z.object({
 });
 export type CreateTemplateParams = z.infer<typeof createTemplateParamsSchema>;
 
+export const templateNameSchema = z.string().superRefine((name, ctx) => {
+  if (!name.trim() || name.length > 64 || /\s/.test(name) || name.startsWith("system/")) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: TEMPLATE_NAME_ERROR_MESSAGE,
+    });
+  }
+});
+
+export const templateUriSchema = z.string().superRefine((uri, ctx) => {
+  if (!uri.trim() || uri.length > 500) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: TEMPLATE_URI_ERROR_MESSAGE,
+    });
+  }
+});
+
+export const createTemplateRequestSchema = createTemplateParamsSchema.extend({
+  name: templateNameSchema,
+  uri: templateUriSchema,
+});
+
 export const renameTemplateParamsSchema = z.object({
-  name: z.string(),
+  name: templateNameSchema,
 });
 export type RenameTemplateParams = z.infer<typeof renameTemplateParamsSchema>;
