@@ -1,4 +1,11 @@
-import type { PresignedUrl, SandboxData, SandboxState } from "@/models/index.js";
+import type {
+  ObjectStorageMount,
+  ObjectStorageMountSummary,
+  ObjectStorageMountUpdate,
+  PresignedUrl,
+  SandboxData,
+  SandboxState,
+} from "@/models/index.js";
 import { sandboxStateSchema } from "@/models/sandbox.js";
 import {
   CodeInterpreterClient,
@@ -109,6 +116,8 @@ export class Sandbox implements SandboxData {
   envVars?: Record<string, string>;
   /** Network policy attached to the sandbox. */
   networkPolicy?: SandboxData["networkPolicy"];
+  /** Object storage mounts attached to the sandbox. */
+  mounts?: SandboxData["mounts"];
   /** Creation timestamp in ISO 8601 format. */
   createdAt!: string;
   /** Last update timestamp in ISO 8601 format, when available. */
@@ -167,6 +176,7 @@ export class Sandbox implements SandboxData {
     this.autoPause = data.autoPause;
     this.envVars = data.envVars;
     this.networkPolicy = data.networkPolicy;
+    this.mounts = data.mounts;
     this.createdAt = data.createdAt;
     this.updatedAt = data.updatedAt;
     return this;
@@ -207,6 +217,46 @@ export class Sandbox implements SandboxData {
    */
   async delete(options?: { timeout?: number }): Promise<void> {
     await this.client.sandboxes.delete(this.id, options);
+  }
+
+  /**
+   * Adds an object storage mount to the sandbox.
+   *
+   * @param mount Object storage mount configuration.
+   * @param options Optional request settings.
+   * @returns The created mount summary.
+   */
+  async addMount(
+    mount: ObjectStorageMount,
+    options?: { timeout?: number },
+  ): Promise<ObjectStorageMountSummary> {
+    return this.client.sandboxes.addMount(this.id, mount, options);
+  }
+
+  /**
+   * Updates an existing object storage mount on the sandbox.
+   *
+   * @param mountID Mount identifier.
+   * @param mount Partial mount update payload.
+   * @param options Optional request settings.
+   * @returns The updated mount summary.
+   */
+  async updateMount(
+    mountID: string,
+    mount: ObjectStorageMountUpdate,
+    options?: { timeout?: number },
+  ): Promise<ObjectStorageMountSummary> {
+    return this.client.sandboxes.updateMount(this.id, mountID, mount, options);
+  }
+
+  /**
+   * Deletes an object storage mount from the sandbox.
+   *
+   * @param mountID Mount identifier.
+   * @param options Optional request settings.
+   */
+  async deleteMount(mountID: string, options?: { timeout?: number }): Promise<void> {
+    await this.client.sandboxes.deleteMount(this.id, mountID, options);
   }
 
   /**

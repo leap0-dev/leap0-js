@@ -5,9 +5,14 @@ import {
   createPresignedUrlParamsSchema,
   createSandboxRuntimeParamsSchema,
   listSandboxesParamsSchema,
+  objectStorageMountSchema,
+  objectStorageMountSummarySchema,
+  objectStorageMountUpdateSchema,
   listSandboxesResponseSchema,
   presignedUrlSchema,
   sandboxDataSchema,
+  toObjectStorageMountsWire,
+  toObjectStorageMountUpdateWire,
   toNetworkPolicyWire,
 } from "@/models/sandbox.js";
 import type {
@@ -15,6 +20,9 @@ import type {
   CreateSandboxParams,
   ListSandboxesParams,
   ListSandboxesResponse,
+  ObjectStorageMount,
+  ObjectStorageMountSummary,
+  ObjectStorageMountUpdate,
   PresignedUrl,
   RequestOptions,
   SandboxData,
@@ -114,6 +122,7 @@ export class SandboxesClient<T = SandboxData> {
       auto_pause: normalizedParams.autoPause ?? false,
       env_vars: injectOtelEnv(normalizedParams.envVars, effectiveOtelExport),
       network_policy: toNetworkPolicyWire(normalizedParams.networkPolicy),
+      mounts: toObjectStorageMountsWire(normalizedParams.mounts),
     };
 
     return withErrorPrefix("Failed to create sandbox: ", async () => {
@@ -203,6 +212,85 @@ export class SandboxesClient<T = SandboxData> {
   async delete(sandbox: SandboxRef, options: RequestOptions = {}): Promise<void> {
     await withErrorPrefix("Failed to delete sandbox: ", () =>
       this.transport.request(`/v1/sandbox/${sandboxIdOf(sandbox)}/`, { method: "DELETE" }, options),
+    );
+  }
+
+  /**
+   * Adds an object storage mount to a running sandbox.
+   *
+   * @param sandbox Sandbox ID or sandbox-like object.
+   * @param mount Object storage mount configuration.
+   * @param options Optional request settings such as timeout and query params.
+   * @returns The created mount summary.
+   */
+  async addMount(
+    sandbox: SandboxRef,
+    mount: ObjectStorageMount,
+    options: RequestOptions = {},
+  ): Promise<ObjectStorageMountSummary> {
+    const parsedMount = objectStorageMountSchema.parse(mount);
+    return withErrorPrefix("Failed to add sandbox mount: ", async () => {
+      const data = await this.transport.requestJson<unknown>(
+        `/v1/sandbox/${sandboxIdOf(sandbox)}/mounts`,
+        { method: "POST", body: jsonBody(toObjectStorageMountsWire([parsedMount])?.[0]) },
+        options,
+      );
+      return normalize(objectStorageMountSummarySchema, data);
+    });
+  }
+
+  /**
+   * Updates an existing object storage mount on a sandbox.
+   *
+   * @param sandbox Sandbox ID or sandbox-like object.
+   * @param mountID Mount identifier.
+   * @param mount Partial mount update payload.
+   * @param options Optional request settings such as timeout and query params.
+   * @returns The updated mount summary.
+   */
+  async updateMount(
+    sandbox: SandboxRef,
+    mountID: string,
+    mount: ObjectStorageMountUpdate,
+    options: RequestOptions = {},
+  ): Promise<ObjectStorageMountSummary> {
+    const trimmedMountID = mountID.trim();
+    if (!trimmedMountID) {
+      throw new Leap0Error("mountID must be a non-empty string");
+    }
+    const parsedMount = objectStorageMountUpdateSchema.parse(mount);
+    return withErrorPrefix("Failed to update sandbox mount: ", async () => {
+      const data = await this.transport.requestJson<unknown>(
+        `/v1/sandbox/${sandboxIdOf(sandbox)}/mounts/${trimmedMountID}`,
+        { method: "PATCH", body: jsonBody(toObjectStorageMountUpdateWire(parsedMount)) },
+        options,
+      );
+      return normalize(objectStorageMountSummarySchema, data);
+    });
+  }
+
+  /**
+   * Deletes an object storage mount from a sandbox.
+   *
+   * @param sandbox Sandbox ID or sandbox-like object.
+   * @param mountID Mount identifier.
+   * @param options Optional request settings such as timeout and query params.
+   */
+  async deleteMount(
+    sandbox: SandboxRef,
+    mountID: string,
+    options: RequestOptions = {},
+  ): Promise<void> {
+    const trimmedMountID = mountID.trim();
+    if (!trimmedMountID) {
+      throw new Leap0Error("mountID must be a non-empty string");
+    }
+    await withErrorPrefix("Failed to delete sandbox mount: ", () =>
+      this.transport.request(
+        `/v1/sandbox/${sandboxIdOf(sandbox)}/mounts/${trimmedMountID}`,
+        { method: "DELETE" },
+        options,
+      ),
     );
   }
 
