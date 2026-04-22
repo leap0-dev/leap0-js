@@ -61,6 +61,60 @@ test("sandboxes create validates payload and wraps result", async () => {
   assert.equal((jsonOf(calls[0]!) as { template_name: string }).template_name, "custom");
 });
 
+test("sandboxes create serializes object storage mounts", async () => {
+  const { transport, calls } = createRecordedTransport({
+    requestJson: (path: string, init: RequestInit, options: unknown) => {
+      calls.push({ path, init, options: options as never });
+      return Promise.resolve({
+        id: "sb-1",
+        template_id: "tpl-1",
+        state: "running",
+        vcpu: 2,
+        memory: 1024,
+        disk: 4096,
+        timeout: 10,
+        auto_pause: false,
+        mounts: [
+          {
+            id: "mnt-1",
+            type: "object-storage",
+            bucket: "project-assets",
+            mount_path: "/data/assets",
+            prefix: "docs/",
+            read_only: true,
+          },
+        ],
+        created_at: "2026-01-01T00:00:00Z",
+      });
+    },
+  });
+  const client = new SandboxesClient(transport as never);
+
+  const result = await client.create({
+    mounts: [
+      {
+        type: "object-storage",
+        bucket: "project-assets",
+        mountPath: "/data/assets",
+        endpoint: "https://storage.example.com",
+        prefix: "docs/",
+      },
+    ],
+  });
+
+  assert.deepEqual((jsonOf(calls[0]!) as { mounts: unknown }).mounts, [
+    {
+      type: "object-storage",
+      bucket: "project-assets",
+      mount_path: "/data/assets",
+      endpoint: "https://storage.example.com",
+      prefix: "docs/",
+    },
+  ]);
+  assert.equal(result.mounts?.[0]?.bucket, "project-assets");
+  assert.equal(result.mounts?.[0]?.mountPath, "/data/assets");
+});
+
 test("sandboxes create rejects invalid parameters", async () => {
   const { client } = makeClient();
   await assert.rejects(() => client.create(null as never), /params must be an object/);
@@ -71,6 +125,62 @@ test("sandboxes create rejects invalid parameters", async () => {
   await assert.rejects(() => client.create({ vcpu: 0 }), Leap0Error);
   await assert.rejects(() => client.create({ memory: 513 }), Leap0Error);
   await assert.rejects(() => client.create({ timeout: 99999 }), Leap0Error);
+  await assert.rejects(() => client.create({ mounts: [{ type: "object-storage", bucket: "b", mountPath: "/data", endpoint: "not-a-url" }] }), Leap0Error);
+  await assert.rejects(() => client.create({ mounts: [
+    { type: "object-storage", bucket: "a", mountPath: "/data", endpoint: "https://storage-a.example.com" },
+    { type: "object-storage", bucket: "b", mountPath: "/data", endpoint: "https://storage-b.example.com" },
+  ] }), /unique mountPath/);
+});
+
+test("sandboxes add update and delete mounts", async () => {
+  const { transport, calls } = createRecordedTransport({
+    requestJson: (path: string, init: RequestInit, options: unknown) => {
+      calls.push({ path, init, options: options as never });
+      return Promise.resolve({
+        id: "mnt-1",
+        type: "object-storage",
+        bucket: "project-assets",
+        mount_path: "/data/assets",
+        prefix: "docs/",
+        read_only: false,
+      });
+    },
+    request: (path: string, init: RequestInit, options: unknown) => {
+      calls.push({ path, init, options: options as never });
+      return Promise.resolve(new Response(null, { status: 204 }));
+    },
+  });
+  const client = new SandboxesClient(transport as never);
+
+  const added = await client.addMount("sb-1", {
+    type: "object-storage",
+    bucket: "project-assets",
+    mountPath: "/data/assets",
+    endpoint: "https://storage.example.com",
+    prefix: "docs/",
+  });
+  const updated = await client.updateMount("sb-1", "mnt-1", {
+    prefix: "docs/",
+    readOnly: false,
+  });
+  await client.deleteMount("sb-1", "mnt-1");
+
+  assert.equal(added.id, "mnt-1");
+  assert.equal(updated.mountPath, "/data/assets");
+  assert.equal(calls[0]?.path, "/v1/sandbox/sb-1/mounts");
+  assert.deepEqual(jsonOf(calls[0]!) as { endpoint: string; mount_path: string }, {
+    type: "object-storage",
+    bucket: "project-assets",
+    mount_path: "/data/assets",
+    endpoint: "https://storage.example.com",
+    prefix: "docs/",
+  });
+  assert.equal(calls[1]?.path, "/v1/sandbox/sb-1/mounts/mnt-1");
+  assert.deepEqual(jsonOf(calls[1]!) as { prefix: string; read_only: boolean }, {
+    prefix: "docs/",
+    read_only: false,
+  });
+  assert.equal(calls[2]?.path, "/v1/sandbox/sb-1/mounts/mnt-1");
 });
 
 test("sandboxes get pause and delete target sandbox ids", async () => {

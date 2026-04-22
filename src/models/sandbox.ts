@@ -103,6 +103,54 @@ export const networkPolicySchema = z.object({
 /** Network policy configuration applied to sandbox egress traffic. */
 export type NetworkPolicy = z.infer<typeof networkPolicySchema>;
 
+const mountPathSchema = z
+  .string()
+  .startsWith("/", "mountPath must be an absolute path")
+  .min(2, "mountPath must be an absolute path");
+
+const mountPrefixSchema = z
+  .string()
+  .refine((value) => value.length === 0 || (!value.startsWith("/") && value.endsWith("/") && !value.includes("..")), {
+    message: "prefix must be relative, must not contain '..', and must end with '/'",
+  });
+
+export const objectStorageMountSchema = z.object({
+  type: z.literal("object-storage"),
+  bucket: z.string().trim().min(1, "bucket must be a non-empty string"),
+  mountPath: mountPathSchema,
+  endpoint: z.string().url("endpoint must be a valid URL"),
+  prefix: mountPrefixSchema.optional(),
+  readOnly: z.boolean().optional(),
+  accessKeyId: z.string().optional(),
+  secretAccessKey: z.string().optional(),
+});
+export type ObjectStorageMount = z.infer<typeof objectStorageMountSchema>;
+
+export const objectStorageMountUpdateSchema = z
+  .object({
+    bucket: z.string().trim().min(1, "bucket must be a non-empty string").optional(),
+    mountPath: mountPathSchema.optional(),
+    endpoint: z.string().url("endpoint must be a valid URL").optional(),
+    prefix: mountPrefixSchema.optional(),
+    readOnly: z.boolean().optional(),
+    accessKeyId: z.string().optional(),
+    secretAccessKey: z.string().optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, {
+    message: "mount update must include at least one field",
+  });
+export type ObjectStorageMountUpdate = z.infer<typeof objectStorageMountUpdateSchema>;
+
+export const objectStorageMountSummarySchema = z.object({
+  id: z.string(),
+  type: z.literal("object-storage"),
+  bucket: z.string(),
+  mountPath: z.string(),
+  prefix: z.string().optional(),
+  readOnly: z.boolean().optional(),
+});
+export type ObjectStorageMountSummary = z.infer<typeof objectStorageMountSummarySchema>;
+
 export const sandboxStateSchema = z.enum([
   SandboxState.STARTING,
   SandboxState.RUNNING,
@@ -128,6 +176,7 @@ export const sandboxDataSchema = z
     autoPause: z.boolean().optional(),
     envVars: z.record(z.string(), z.string()).optional(),
     networkPolicy: networkPolicySchema.optional(),
+    mounts: z.array(objectStorageMountSummarySchema).optional(),
     createdAt: z.string(),
     updatedAt: z.string().optional(),
   })
@@ -198,17 +247,23 @@ export const listSandboxesParamsSchema = z
 /** Parameters accepted when listing sandboxes. */
 export type ListSandboxesParams = z.infer<typeof listSandboxesParamsSchema>;
 
-export const createSandboxParamsSchema = z.object({
-  templateName: z.string().optional(),
-  vcpu: z.number().int().positive().optional(),
-  memory: z.number().int().positive().optional(),
-  timeout: z.number().int().positive().optional(),
-  autoPause: z.boolean().optional(),
-  otelExport: z.boolean().optional(),
-  telemetry: z.boolean().optional(),
-  envVars: z.record(z.string(), z.string()).optional(),
-  networkPolicy: networkPolicySchema.optional(),
-});
+export const createSandboxParamsSchema = z
+  .object({
+    templateName: z.string().optional(),
+    vcpu: z.number().int().positive().optional(),
+    memory: z.number().int().positive().optional(),
+    timeout: z.number().int().positive().optional(),
+    autoPause: z.boolean().optional(),
+    otelExport: z.boolean().optional(),
+    telemetry: z.boolean().optional(),
+    envVars: z.record(z.string(), z.string()).optional(),
+    networkPolicy: networkPolicySchema.optional(),
+    mounts: z.array(objectStorageMountSchema).max(8).optional(),
+  })
+  .refine((value) => hasUniqueMountPaths(value.mounts), {
+    path: ["mounts"],
+    message: "mounts must use unique mountPath values",
+  });
 /** Parameters accepted when creating a sandbox. */
 export type CreateSandboxParams = z.infer<typeof createSandboxParamsSchema>;
 
@@ -255,10 +310,22 @@ export const createSandboxRuntimeParamsSchema = z
       telemetry: z.boolean().optional(),
       envVars: z.record(z.string(), z.string()).optional(),
       networkPolicy: networkPolicySchema.optional(),
+      mounts: z.array(objectStorageMountSchema).max(8, "mounts must contain at most 8 entries").optional(),
     },
     { invalid_type_error: "params must be an object" },
   )
-  .passthrough();
+  .passthrough()
+  .refine((value) => hasUniqueMountPaths(value.mounts), {
+    path: ["mounts"],
+    message: "mounts must use unique mountPath values",
+  });
+
+function hasUniqueMountPaths(mounts: ObjectStorageMount[] | undefined): boolean {
+  if (mounts == null) {
+    return true;
+  }
+  return new Set(mounts.map((mount) => mount.mountPath)).size === mounts.length;
+}
 
 type NetworkPolicyWire = {
   mode: NetworkPolicyMode;
@@ -269,6 +336,17 @@ type NetworkPolicyWire = {
     inject_headers?: Record<string, string>;
     strip_headers?: string[];
   }>;
+};
+
+type ObjectStorageMountWire = {
+  type: "object-storage";
+  bucket: string;
+  mount_path: string;
+  endpoint: string;
+  prefix?: string;
+  read_only?: boolean;
+  access_key_id?: string;
+  secret_access_key?: string;
 };
 
 /**
@@ -291,5 +369,46 @@ export function toNetworkPolicyWire(
       inject_headers: transform.injectHeaders,
       strip_headers: transform.stripHeaders,
     })),
+  };
+}
+
+export function toObjectStorageMountsWire(
+  mounts: ObjectStorageMount[] | undefined,
+): ObjectStorageMountWire[] | undefined {
+  if (mounts == null) return undefined;
+
+  return mounts.map((mount) => ({
+    type: mount.type,
+    bucket: mount.bucket,
+    mount_path: mount.mountPath,
+    endpoint: mount.endpoint,
+    prefix: mount.prefix,
+    read_only: mount.readOnly,
+    access_key_id: mount.accessKeyId,
+    secret_access_key: mount.secretAccessKey,
+  }));
+}
+
+type ObjectStorageMountUpdateWire = {
+  bucket?: string;
+  mount_path?: string;
+  endpoint?: string;
+  prefix?: string;
+  read_only?: boolean;
+  access_key_id?: string;
+  secret_access_key?: string;
+};
+
+export function toObjectStorageMountUpdateWire(
+  mount: ObjectStorageMountUpdate,
+): ObjectStorageMountUpdateWire {
+  return {
+    bucket: mount.bucket,
+    mount_path: mount.mountPath,
+    endpoint: mount.endpoint,
+    prefix: mount.prefix,
+    read_only: mount.readOnly,
+    access_key_id: mount.accessKeyId,
+    secret_access_key: mount.secretAccessKey,
   };
 }

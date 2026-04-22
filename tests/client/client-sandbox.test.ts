@@ -86,6 +86,23 @@ test("Sandbox binds service methods to itself", async () => {
         createdAt: "2026-01-01T00:00:00Z",
       }),
       delete: async () => undefined,
+      addMount: async () => ({
+        id: "mnt-1",
+        type: "object-storage",
+        bucket: "project-assets",
+        mountPath: "/data/assets",
+        prefix: "docs/",
+        readOnly: true,
+      }),
+      updateMount: async () => ({
+        id: "mnt-1",
+        type: "object-storage",
+        bucket: "project-assets",
+        mountPath: "/data/assets",
+        prefix: "docs/",
+        readOnly: false,
+      }),
+      deleteMount: async () => undefined,
       createPresignedUrl: async () => ({
         id: "psu-1",
         token: "tok_1",
@@ -131,6 +148,9 @@ test("Sandbox binds service methods to itself", async () => {
   assert.equal(sandbox.memory, 2048);
   await sandbox.pause();
   assert.equal(sandbox.state, "paused");
+  assert.equal((await sandbox.addMount({ type: "object-storage", bucket: "project-assets", mountPath: "/data/assets", endpoint: "https://storage.example.com" })).id, "mnt-1");
+  assert.equal((await sandbox.updateMount("mnt-1", { readOnly: false })).readOnly, false);
+  await sandbox.deleteMount("mnt-1");
   assert.equal(sandbox.invokeUrl("/healthz", 3000), "invoke:sb-1:/healthz:3000");
   assert.equal(await sandbox.getUserHomeDir(), "home:sb-1");
   assert.equal(await sandbox.getWorkdir(), "workdir:sb-1");
@@ -206,5 +226,13 @@ test("client and sandbox helpers stay strongly typed", () => {
   expectTypeOf<Sandbox["templateName"]>().toEqualTypeOf<string | undefined>();
   expectTypeOf<Sandbox["timeout"]>().toEqualTypeOf<number | undefined>();
   expectTypeOf<Sandbox["envVars"]>().toEqualTypeOf<Record<string, string> | undefined>();
+  expectTypeOf<Sandbox["mounts"]>().toEqualTypeOf<
+    | Array<{ id: string; type: "object-storage"; bucket: string; mountPath: string; prefix?: string | undefined; readOnly?: boolean | undefined }>
+    | undefined
+  >();
+  expectTypeOf<ReturnType<Sandbox["addMount"]>>().toEqualTypeOf<Promise<{ id: string; bucket: string }>>();
+  expectTypeOf<Sandbox["updateMount"]>().parameters.toEqualTypeOf<
+    [mountID: string, mount: { bucket?: string; mountPath?: string; endpoint?: string; prefix?: string; readOnly?: boolean; accessKeyId?: string; secretAccessKey?: string }, options?: { timeout?: number }]
+  >();
   expectTypeOf<Sandbox["updatedAt"]>().toEqualTypeOf<string | undefined>();
 });
