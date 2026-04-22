@@ -30,7 +30,11 @@ export type {
   SandboxListItem,
 } from "@/models/sandbox.js";
 
-export { listSnapshotsParamsSchema, listSnapshotsResponseSchema } from "@/models/snapshot.js";
+export {
+  listSnapshotsParamsSchema,
+  listSnapshotsResponseSchema,
+  restoreSnapshotParamsSchema,
+} from "@/models/snapshot.js";
 export type {
   ListSnapshotsParams,
   ListSnapshotsResponse,
