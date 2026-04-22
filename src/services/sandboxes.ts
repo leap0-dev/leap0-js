@@ -2,6 +2,7 @@ import { OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_HEADERS } from "@/confi
 import { Leap0Error } from "@/core/errors.js";
 import { normalize } from "@/core/normalize.js";
 import {
+  createSnapshotParamsSchema,
   createPresignedUrlParamsSchema,
   createSandboxRuntimeParamsSchema,
   listSandboxesParamsSchema,
@@ -15,9 +16,11 @@ import {
   toObjectStorageMountUpdateWire,
   toNetworkPolicyWire,
 } from "@/models/sandbox.js";
+import { snapshotDataSchema } from "@/models/snapshot.js";
 import type {
   CreatePresignedUrlParams,
   CreateSandboxParams,
+  CreateSnapshotParams,
   ListSandboxesParams,
   ListSandboxesResponse,
   ObjectStorageMount,
@@ -27,6 +30,7 @@ import type {
   RequestOptions,
   SandboxData,
   SandboxRef,
+  SnapshotData,
 } from "@/models/index.js";
 import { Leap0Transport, jsonBody } from "@/core/transport.js";
 import {
@@ -182,6 +186,41 @@ export class SandboxesClient<T = SandboxData> {
         options,
       );
       return this.wrap(normalize(sandboxDataSchema, data));
+    });
+  }
+
+  /**
+   * Creates a snapshot from a running sandbox.
+   *
+   * @param sandbox Sandbox ID or sandbox-like object.
+   * @param params Optional snapshot naming parameters.
+   * @param options Optional request settings such as timeout and query params.
+   * @returns The created snapshot resource.
+   */
+  async createSnapshot(
+    sandbox: SandboxRef,
+    params: CreateSnapshotParams = {},
+    options: RequestOptions = {},
+  ): Promise<SnapshotData> {
+    const parsedParams = createSnapshotParamsSchema.safeParse(params);
+    if (!parsedParams.success) {
+      throw new Leap0Error(parsedParams.error.issues[0]?.message ?? "Invalid snapshot parameters");
+    }
+
+    return withErrorPrefix("Failed to create snapshot: ", async () => {
+      const parsed = parsedParams.data;
+      const data = await this.transport.requestJson<unknown>(
+        `/v1/sandbox/${sandboxIdOf(sandbox)}/snapshot/create`,
+        {
+          method: "POST",
+          body: jsonBody({
+            name: parsed.name,
+            kill_sandbox_after: parsed.killSandboxAfter,
+          }),
+        },
+        options,
+      );
+      return normalize(snapshotDataSchema, data);
     });
   }
 

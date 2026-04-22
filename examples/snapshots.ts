@@ -8,10 +8,10 @@ async function main(): Promise<void> {
     try {
       await sandbox.filesystem.writeFile("/workspace/checkpoint.txt", "before snapshot\n");
 
-      const snapshot = await client.snapshots.create(sandbox, { name: "example-checkpoint" });
+      const snapshot = await sandbox.createSnapshot({ name: "example-checkpoint" });
       console.log("snapshot:", snapshot.id);
 
-      const restored = await client.snapshots.resume({
+      const restored = await client.snapshots.restore({
         snapshotName: snapshot.name ?? "example-checkpoint",
       });
       try {

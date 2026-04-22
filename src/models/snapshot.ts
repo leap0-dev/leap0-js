@@ -19,12 +19,6 @@ export const snapshotDataSchema = z
 /** Snapshot resource returned by the control plane API. */
 export type SnapshotData = z.infer<typeof snapshotDataSchema>;
 
-export const createSnapshotParamsSchema = z.object({
-  name: snapshotNameSchema.optional(),
-});
-/** Parameters accepted when creating or naming a snapshot. */
-export type CreateSnapshotParams = z.infer<typeof createSnapshotParamsSchema>;
-
 export const listSnapshotsParamsSchema = z.object({
   query: z.string().max(64).optional(),
   sort: z.enum(["created_at", "template_id"]).optional(),
@@ -44,11 +38,11 @@ export const listSnapshotsResponseSchema = z
 /** Paginated snapshot list response. */
 export type ListSnapshotsResponse = z.infer<typeof listSnapshotsResponseSchema>;
 
-export const resumeSnapshotParamsSchema = z.object({
+export const restoreSnapshotParamsSchema = z.object({
   snapshotName: snapshotNameSchema,
   autoPause: z.boolean().optional(),
   timeout: z.number().int().min(1).max(28800).optional(),
   networkPolicy: networkPolicySchema.optional(),
 });
-/** Parameters accepted when resuming a snapshot into a new sandbox. */
-export type ResumeSnapshotParams = z.infer<typeof resumeSnapshotParamsSchema>;
+/** Parameters accepted when restoring a snapshot into a new sandbox. */
+export type RestoreSnapshotParams = z.infer<typeof restoreSnapshotParamsSchema>;
