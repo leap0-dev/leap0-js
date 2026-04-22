@@ -85,6 +85,15 @@ test("Sandbox binds service methods to itself", async () => {
         autoPause: false,
         createdAt: "2026-01-01T00:00:00Z",
       }),
+      createSnapshot: async () => ({
+        id: "snap-1",
+        name: "snap-a",
+        templateId: "tpl-1",
+        vcpu: 1,
+        memory: 1024,
+        disk: 4096,
+        createdAt: "2026-01-01T00:00:00Z",
+      }),
       delete: async () => undefined,
       addMount: async () => ({
         id: "mnt-1",
@@ -148,6 +157,7 @@ test("Sandbox binds service methods to itself", async () => {
   assert.equal(sandbox.memory, 2048);
   await sandbox.pause();
   assert.equal(sandbox.state, "paused");
+  assert.equal((await sandbox.createSnapshot({ name: "snap-a", killSandboxAfter: true })).id, "snap-1");
   assert.equal((await sandbox.addMount({ type: "object-storage", bucket: "project-assets", mountPath: "/data/assets", endpoint: "https://storage.example.com" })).id, "mnt-1");
   assert.equal((await sandbox.updateMount("mnt-1", { readOnly: false })).readOnly, false);
   await sandbox.deleteMount("mnt-1");
@@ -204,7 +214,7 @@ test("client and sandbox helpers stay strongly typed", () => {
   expectTypeOf<ReturnType<Leap0Client["sandboxes"]["create"]>>().toMatchTypeOf<
     Promise<{ id: string }>
   >();
-  expectTypeOf<ReturnType<Leap0Client["snapshots"]["resume"]>>().toMatchTypeOf<
+  expectTypeOf<ReturnType<Leap0Client["snapshots"]["restore"]>>().toMatchTypeOf<
     Promise<{ id: string }>
   >();
 
@@ -230,7 +240,7 @@ test("client and sandbox helpers stay strongly typed", () => {
     | Array<{ id: string; type: "object-storage"; bucket: string; mountPath: string; prefix?: string | undefined; readOnly?: boolean | undefined }>
     | undefined
   >();
-  expectTypeOf<ReturnType<Sandbox["addMount"]>>().toEqualTypeOf<Promise<{ id: string; bucket: string }>>();
+  expectTypeOf<ReturnType<Sandbox["addMount"]>>().toEqualTypeOf<Promise<{ id: string; type: "object-storage"; bucket: string; mountPath: string; prefix?: string | undefined; readOnly?: boolean | undefined }>>();
   expectTypeOf<Sandbox["updateMount"]>().parameters.toEqualTypeOf<
     [mountID: string, mount: { bucket?: string; mountPath?: string; endpoint?: string; prefix?: string; readOnly?: boolean; accessKeyId?: string; secretAccessKey?: string }, options?: { timeout?: number }]
   >();

@@ -5,6 +5,7 @@ export type { SandboxRef, SnapshotRef, TemplateRef } from "@/models/refs.js";
 export {
   createPresignedUrlParamsSchema,
   createSandboxParamsSchema,
+  createSnapshotParamsSchema,
   listSandboxesParamsSchema,
   listSandboxesResponseSchema,
   NetworkPolicyMode,
@@ -17,6 +18,7 @@ export {
 export type {
   CreatePresignedUrlParams,
   CreateSandboxParams,
+  CreateSnapshotParams,
   ListSandboxesParams,
   ListSandboxesResponse,
   NetworkPolicy,
@@ -28,16 +30,11 @@ export type {
   SandboxListItem,
 } from "@/models/sandbox.js";
 
-export {
-  createSnapshotParamsSchema,
-  listSnapshotsParamsSchema,
-  listSnapshotsResponseSchema,
-} from "@/models/snapshot.js";
+export { listSnapshotsParamsSchema, listSnapshotsResponseSchema } from "@/models/snapshot.js";
 export type {
-  CreateSnapshotParams,
   ListSnapshotsParams,
   ListSnapshotsResponse,
-  ResumeSnapshotParams,
+  RestoreSnapshotParams,
   SnapshotData,
 } from "@/models/snapshot.js";
 

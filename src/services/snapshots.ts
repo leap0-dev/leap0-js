@@ -1,29 +1,24 @@
 import type {
-  CreateSnapshotParams,
   ListSnapshotsParams,
   ListSnapshotsResponse,
   RequestOptions,
-  ResumeSnapshotParams,
+  RestoreSnapshotParams,
   SandboxData,
-  SandboxRef,
-  SnapshotData,
   SnapshotRef,
 } from "@/models/index.js";
 import { normalize } from "@/core/normalize.js";
 import {
-  createSnapshotParamsSchema,
   listSnapshotsParamsSchema,
   listSnapshotsResponseSchema,
-  resumeSnapshotParamsSchema,
-  snapshotDataSchema,
+  restoreSnapshotParamsSchema,
 } from "@/models/snapshot.js";
 import { sandboxDataSchema, toNetworkPolicyWire } from "@/models/sandbox.js";
 import { Leap0Transport, jsonBody } from "@/core/transport.js";
-import { sandboxIdOf, snapshotIdOf } from "@/core/utils.js";
+import { snapshotIdOf } from "@/core/utils.js";
 import { withErrorPrefix } from "@/services/shared.js";
 
 /**
- * Creates, restores, and deletes named snapshots.
+ * Lists, restores, and deletes named snapshots.
  *
  * @throws {Leap0Error} If request validation, API calls, or response validation fail.
  */
@@ -70,65 +65,17 @@ export class SnapshotsClient<T = SandboxData> {
   }
 
   /**
-   * Creates a snapshot from a running sandbox.
-   *
-   * @param sandbox Sandbox ID or sandbox-like object.
-   * @param params Optional snapshot naming parameters.
-   * @param options Optional request settings such as timeout and query params.
-   * @returns The created snapshot resource.
-   */
-  async create(
-    sandbox: SandboxRef,
-    params: CreateSnapshotParams = {},
-    options: RequestOptions = {},
-  ): Promise<SnapshotData> {
-    return withErrorPrefix("Failed to create snapshot: ", async () => {
-      const parsed = createSnapshotParamsSchema.parse(params);
-      const data = await this.transport.requestJson<unknown>(
-        `/v1/sandbox/${sandboxIdOf(sandbox)}/snapshot/create`,
-        { method: "POST", body: jsonBody(parsed) },
-        options,
-      );
-      return normalize(snapshotDataSchema, data);
-    });
-  }
-
-  /**
-   * Creates a snapshot and terminates the source sandbox.
-   *
-   * @param sandbox Sandbox ID or sandbox-like object.
-   * @param params Optional snapshot naming parameters.
-   * @param options Optional request settings such as timeout and query params.
-   * @returns The created snapshot resource.
-   */
-  async pause(
-    sandbox: SandboxRef,
-    params: CreateSnapshotParams = {},
-    options: RequestOptions = {},
-  ): Promise<SnapshotData> {
-    return withErrorPrefix("Failed to pause sandbox into snapshot: ", async () => {
-      const parsed = createSnapshotParamsSchema.parse(params);
-      const data = await this.transport.requestJson<unknown>(
-        `/v1/sandbox/${sandboxIdOf(sandbox)}/snapshot/pause`,
-        { method: "POST", body: jsonBody(parsed) },
-        options,
-      );
-      return normalize(snapshotDataSchema, data);
-    });
-  }
-
-  /**
    * Restores a sandbox from a snapshot.
    *
    * @param params Snapshot name and optional sandbox overrides.
    * @param options Optional request settings such as timeout and query params.
    * @returns The restored sandbox, optionally wrapped in a custom sandbox type.
    */
-  async resume(params: ResumeSnapshotParams, options: RequestOptions = {}): Promise<T> {
-    return withErrorPrefix("Failed to resume snapshot: ", async () => {
-      const parsed = resumeSnapshotParamsSchema.parse(params);
+  async restore(params: RestoreSnapshotParams, options: RequestOptions = {}): Promise<T> {
+    return withErrorPrefix("Failed to restore snapshot: ", async () => {
+      const parsed = restoreSnapshotParamsSchema.parse(params);
       const data = await this.transport.requestJson<unknown>(
-        "/v1/snapshot/resume",
+        "/v1/snapshot/restore",
         {
           method: "POST",
           body: jsonBody({

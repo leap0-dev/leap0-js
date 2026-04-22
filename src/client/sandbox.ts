@@ -1,4 +1,5 @@
 import type {
+  CreateSnapshotParams,
   ObjectStorageMount,
   ObjectStorageMountSummary,
   ObjectStorageMountUpdate,
@@ -206,6 +207,22 @@ export class Sandbox implements SandboxData {
   async pause(options?: { timeout?: number }): Promise<this> {
     this.update((await this.client.sandboxes.pause(this.id, options)) as SandboxData);
     return this;
+  }
+
+  /**
+   * Creates a snapshot from this sandbox.
+   *
+   * @param params Optional snapshot naming and lifecycle parameters.
+   * @param options Optional request settings.
+   * @returns The created snapshot resource.
+   *
+   * @throws {Leap0Error} If creating the snapshot fails.
+   */
+  async createSnapshot(
+    params: CreateSnapshotParams = {},
+    options?: { timeout?: number },
+  ) {
+    return this.client.sandboxes.createSnapshot(this.id, params, options);
   }
 
   /**

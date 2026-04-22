@@ -184,6 +184,13 @@ export const sandboxDataSchema = z
 /** Sandbox resource returned by the control plane API. */
 export type SandboxData = z.infer<typeof sandboxDataSchema>;
 
+export const createSnapshotParamsSchema = z.object({
+  name: z.string().trim().min(1).max(64).optional(),
+  killSandboxAfter: z.boolean().optional(),
+});
+/** Parameters accepted when creating a snapshot from a sandbox. */
+export type CreateSnapshotParams = z.infer<typeof createSnapshotParamsSchema>;
+
 export const sandboxListItemSchema = z
   .object({
     id: z.string(),

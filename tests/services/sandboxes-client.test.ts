@@ -193,6 +193,36 @@ test("sandboxes get pause and delete target sandbox ids", async () => {
   assert.equal(calls[2]?.path, "/v1/sandbox/sb-3/");
 });
 
+test("sandboxes createSnapshot targets sandbox snapshot endpoint", async () => {
+  const { transport, calls } = createRecordedTransport({
+    requestJson: (path: string, init: RequestInit, options: unknown) => {
+      calls.push({ path, init, options: options as never });
+      return Promise.resolve({
+        id: "snap-1",
+        name: "snap-a",
+        template_id: "tpl-1",
+        vcpu: 2,
+        memory: 1024,
+        disk: 4096,
+        created_at: "2026-01-01T00:00:00Z",
+      });
+    },
+  });
+  const client = new SandboxesClient(transport as never);
+
+  const created = await client.createSnapshot("sb-1", { name: "snap-a", killSandboxAfter: true });
+
+  assert.equal(created.id, "snap-1");
+  assert.equal(calls[0]?.path, "/v1/sandbox/sb-1/snapshot/create");
+  assert.deepEqual(jsonOf(calls[0]!), { name: "snap-a", kill_sandbox_after: true });
+});
+
+test("sandboxes createSnapshot validates snapshot params", async () => {
+  const { client } = makeClient();
+  await assert.rejects(() => client.createSnapshot("sb-1", { name: "" }), Leap0Error);
+  await assert.rejects(() => client.createSnapshot("sb-1", { name: "   " }), Leap0Error);
+});
+
 test("sandboxes runtime info targets system endpoints", async () => {
   const { transport, calls } = createRecordedTransport({
     requestJson: (path: string, init: RequestInit, options: unknown) => {

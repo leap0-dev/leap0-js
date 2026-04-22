@@ -8,7 +8,7 @@ test("snapshots client sends expected request shapes", async () => {
   const { transport, calls } = createRecordedTransport({
     requestJson: async (path: string, init: RequestInit, options: never) => {
       calls.push({ path, init, options });
-      if (path === "/v1/snapshot/resume") {
+      if (path === "/v1/snapshot/restore") {
         return {
           id: "sb-2",
           state: "running",
@@ -21,49 +21,28 @@ test("snapshots client sends expected request shapes", async () => {
           created_at: "2026-01-01T00:00:00Z",
         };
       }
-      return {
-        id: "snap-1",
-        name: path.endsWith("/pause") ? "snap-b" : "snap-a",
-        template_id: "tpl-1",
-        vcpu: 2,
-        memory: 1024,
-        disk: 4096,
-        created_at: "2026-01-01T00:00:00Z",
-      };
     },
   });
   const client = new SnapshotsClient(transport as never);
-  const created = await client.create("sb-1", { name: "snap-a" });
-  const paused = await client.pause("sb-1", { name: "snap-b" });
-  const restored = await client.resume({ snapshotName: "snap-c", autoPause: true, timeout: 12 });
+  const restored = await client.restore({ snapshotName: "snap-c", autoPause: true, timeout: 12 });
   await client.delete({ id: "snap-1" });
-  assert.equal(created.name, "snap-a");
-  assert.equal(created.templateId, "tpl-1");
-  assert.equal(created.state, undefined);
-  assert.equal(paused.name, "snap-b");
-  assert.equal(paused.memory, 1024);
-  assert.equal(calls[0]?.path, "/v1/sandbox/sb-1/snapshot/create");
-  assert.deepEqual(jsonOf(calls[0]!), { name: "snap-a" });
-  assert.equal(calls[1]?.path, "/v1/sandbox/sb-1/snapshot/pause");
-  assert.equal(calls[2]?.path, "/v1/snapshot/resume");
-  assert.deepEqual(jsonOf(calls[2]!), {
+  assert.equal(calls[0]?.path, "/v1/snapshot/restore");
+  assert.deepEqual(jsonOf(calls[0]!), {
     snapshot_name: "snap-c",
     auto_pause: true,
     timeout: 12,
   });
   assert.equal(restored.templateId, "tpl-1");
-  assert.equal(calls[3]?.path, "/v1/snapshot/snap-1");
+  assert.equal(calls[1]?.path, "/v1/snapshot/snap-1");
 });
 
 test("snapshots client validates snapshot names before transport", async () => {
   const { transport, calls } = createRecordedTransport();
   const client = new SnapshotsClient(transport as never);
 
-  await assert.rejects(() => client.create("sb-1", { name: "" }));
-  await assert.rejects(() => client.create("sb-1", { name: "   " }));
-  await assert.rejects(() => client.resume({ snapshotName: "" }));
-  await assert.rejects(() => client.resume({ snapshotName: "   " }));
-  await assert.rejects(() => client.resume({ snapshotName: "snap-a", timeout: 99999 }));
+  await assert.rejects(() => client.restore({ snapshotName: "" }));
+  await assert.rejects(() => client.restore({ snapshotName: "   " }));
+  await assert.rejects(() => client.restore({ snapshotName: "snap-a", timeout: 99999 }));
   assert.equal(calls.length, 0);
 });
 
