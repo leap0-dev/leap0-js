@@ -183,14 +183,29 @@ test("sandboxes add update and delete mounts", async () => {
   assert.equal(calls[2]?.path, "/v1/sandbox/sb-1/mounts/mnt-1");
 });
 
-test("sandboxes get pause and delete target sandbox ids", async () => {
+test("sandboxes get pause stop start and delete target sandbox ids", async () => {
   const { client, calls } = makeClient();
   await client.get({ id: "sb-1" });
   await client.pause("sb-2");
-  await client.delete("sb-3");
+  await client.stop("sb-3");
+  await client.start("sb-4");
+  await client.delete("sb-5");
   assert.equal(calls[0]?.path, "/v1/sandbox/sb-1/");
   assert.equal(calls[1]?.path, "/v1/sandbox/sb-2/pause");
-  assert.equal(calls[2]?.path, "/v1/sandbox/sb-3/");
+  assert.equal(calls[2]?.path, "/v1/sandbox/sb-3/stop");
+  assert.equal(calls[3]?.path, "/v1/sandbox/sb-4/start");
+  assert.equal(calls[4]?.path, "/v1/sandbox/sb-4/");
+  assert.equal(calls[5]?.path, "/v1/sandbox/sb-5/");
+});
+
+test("sandboxes list accepts stopped lifecycle filters", async () => {
+  const { transport } = createRecordedTransport({
+    requestJson: () => Promise.resolve({ items: [], total_items: 0 }),
+  });
+  const client = new SandboxesClient(transport as never);
+
+  await client.list({ state: "stopping" });
+  await client.list({ state: "stopped" });
 });
 
 test("sandboxes createSnapshot targets sandbox snapshot endpoint", async () => {

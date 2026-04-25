@@ -74,7 +74,7 @@ function injectOtelEnv(
 type SandboxFactory<T> = (data: SandboxData) => T;
 
 /**
- * Creates, fetches, pauses, and deletes sandboxes.
+ * Creates, fetches, pauses, stops, starts, and deletes sandboxes.
  *
  * @throws {Leap0Error} If request validation, API calls, or response validation fail.
  */
@@ -183,6 +183,47 @@ export class SandboxesClient<T = SandboxData> {
       const data = await this.transport.requestJson<unknown>(
         `/v1/sandbox/${sandboxIdOf(sandbox)}/pause`,
         { method: "POST" },
+        options,
+      );
+      return this.wrap(normalize(sandboxDataSchema, data));
+    });
+  }
+
+  /**
+   * Stops a running sandbox while preserving writable disk changes.
+   *
+   * @param sandbox Sandbox ID or sandbox-like object.
+   * @param options Optional request settings such as timeout and query params.
+   * @returns The updated sandbox resource.
+   */
+  async stop(sandbox: SandboxRef, options: RequestOptions = {}): Promise<T> {
+    return withErrorPrefix("Failed to stop sandbox: ", async () => {
+      const data = await this.transport.requestJson<unknown>(
+        `/v1/sandbox/${sandboxIdOf(sandbox)}/stop`,
+        { method: "POST" },
+        options,
+      );
+      return this.wrap(normalize(sandboxDataSchema, data));
+    });
+  }
+
+  /**
+   * Starts a previously stopped sandbox.
+   *
+   * @param sandbox Sandbox ID or sandbox-like object.
+   * @param options Optional request settings such as timeout and query params.
+   * @returns The current sandbox resource after start completes.
+   */
+  async start(sandbox: SandboxRef, options: RequestOptions = {}): Promise<T> {
+    return withErrorPrefix("Failed to start sandbox: ", async () => {
+      await this.transport.requestJson<unknown>(
+        `/v1/sandbox/${sandboxIdOf(sandbox)}/start`,
+        { method: "POST" },
+        options,
+      );
+      const data = await this.transport.requestJson<unknown>(
+        `/v1/sandbox/${sandboxIdOf(sandbox)}/`,
+        { method: "GET" },
         options,
       );
       return this.wrap(normalize(sandboxDataSchema, data));

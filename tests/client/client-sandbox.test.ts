@@ -85,6 +85,26 @@ test("Sandbox binds service methods to itself", async () => {
         autoPause: false,
         createdAt: "2026-01-01T00:00:00Z",
       }),
+      stop: async () => ({
+        id: "sb-1",
+        templateId: "tpl-1",
+        state: "stopped",
+        vcpu: 1,
+        memory: 1024,
+        disk: 4096,
+        autoPause: false,
+        createdAt: "2026-01-01T00:00:00Z",
+      }),
+      start: async () => ({
+        id: "sb-1",
+        templateId: "tpl-1",
+        state: "running",
+        vcpu: 1,
+        memory: 1024,
+        disk: 4096,
+        autoPause: false,
+        createdAt: "2026-01-01T00:00:00Z",
+      }),
       createSnapshot: async () => ({
         id: "snap-1",
         name: "snap-a",
@@ -157,6 +177,10 @@ test("Sandbox binds service methods to itself", async () => {
   assert.equal(sandbox.memory, 2048);
   await sandbox.pause();
   assert.equal(sandbox.state, "paused");
+  await sandbox.stop();
+  assert.equal(sandbox.state, "stopped");
+  await sandbox.start();
+  assert.equal(sandbox.state, "running");
   assert.equal((await sandbox.createSnapshot({ name: "snap-a", killSandboxAfter: true })).id, "snap-1");
   assert.equal((await sandbox.addMount({ type: "object-storage", bucket: "project-assets", mountPath: "/data/assets", endpoint: "https://storage.example.com" })).id, "mnt-1");
   assert.equal((await sandbox.updateMount("mnt-1", { readOnly: false })).readOnly, false);

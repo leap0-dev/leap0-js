@@ -210,6 +210,32 @@ export class Sandbox implements SandboxData {
   }
 
   /**
+   * Stops the sandbox and updates local state.
+   *
+   * @param options Optional request settings.
+   * @returns The stopped sandbox handle.
+   *
+   * @throws {Leap0Error} If stopping the sandbox fails.
+   */
+  async stop(options?: { timeout?: number }): Promise<this> {
+    this.update((await this.client.sandboxes.stop(this.id, options)) as SandboxData);
+    return this;
+  }
+
+  /**
+   * Starts a previously stopped sandbox and updates local state.
+   *
+   * @param options Optional request settings.
+   * @returns The started sandbox handle.
+   *
+   * @throws {Leap0Error} If starting the sandbox fails.
+   */
+  async start(options?: { timeout?: number }): Promise<this> {
+    this.update((await this.client.sandboxes.start(this.id, options)) as SandboxData);
+    return this;
+  }
+
+  /**
    * Creates a snapshot from this sandbox.
    *
    * @param params Optional snapshot naming and lifecycle parameters.
