@@ -16,10 +16,12 @@ export const NetworkPolicyMode = {
 
 export const SandboxState = {
   STARTING: "starting",
+  STOPPING: "stopping",
   RUNNING: "running",
   SNAPSHOTTING: "snapshotting",
   PAUSED: "paused",
   UNPAUSING: "unpausing",
+  STOPPED: "stopped",
   DELETING: "deleting",
   DELETED: "deleted",
 } as const;
@@ -153,10 +155,12 @@ export type ObjectStorageMountSummary = z.infer<typeof objectStorageMountSummary
 
 export const sandboxStateSchema = z.enum([
   SandboxState.STARTING,
+  SandboxState.STOPPING,
   SandboxState.RUNNING,
   SandboxState.SNAPSHOTTING,
   SandboxState.PAUSED,
   SandboxState.UNPAUSING,
+  SandboxState.STOPPED,
   SandboxState.DELETING,
   SandboxState.DELETED,
 ]);
@@ -238,10 +242,12 @@ export const listSandboxesParamsSchema = z
     state: z
       .enum([
         SandboxState.STARTING,
+        SandboxState.STOPPING,
         SandboxState.SNAPSHOTTING,
         SandboxState.RUNNING,
         SandboxState.PAUSED,
         SandboxState.UNPAUSING,
+        SandboxState.STOPPED,
         SandboxState.DELETING,
       ])
       .optional(),

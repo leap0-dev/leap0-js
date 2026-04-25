@@ -21,6 +21,7 @@ test("public index exports core sdk surface", () => {
   assert.equal(sdk.NetworkPolicyMode.ALLOW_ALL, "allow-all");
   assert.equal(sdk.NetworkPolicyMode.DENY_ALL, "deny-all");
   assert.equal(sdk.SandboxState.RUNNING, "running");
+  assert.equal(sdk.SandboxState.STOPPED, "stopped");
   assert.equal(sdk.CodeLanguage.PYTHON, "python");
   assert.equal(sdk.StreamEventType.STDOUT, "stdout");
 });
