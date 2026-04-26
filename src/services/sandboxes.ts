@@ -212,18 +212,13 @@ export class SandboxesClient<T = SandboxData> {
    *
    * @param sandbox Sandbox ID or sandbox-like object.
    * @param options Optional request settings such as timeout and query params.
-   * @returns The current sandbox resource after start completes.
+   * @returns The updated sandbox resource.
    */
   async start(sandbox: SandboxRef, options: RequestOptions = {}): Promise<T> {
     return withErrorPrefix("Failed to start sandbox: ", async () => {
-      await this.transport.requestJson<unknown>(
+      const data = await this.transport.requestJson<unknown>(
         `/v1/sandbox/${sandboxIdOf(sandbox)}/start`,
         { method: "POST" },
-        options,
-      );
-      const data = await this.transport.requestJson<unknown>(
-        `/v1/sandbox/${sandboxIdOf(sandbox)}/`,
-        { method: "GET" },
         options,
       );
       return this.wrap(normalize(sandboxDataSchema, data));

@@ -194,8 +194,7 @@ test("sandboxes get pause stop start and delete target sandbox ids", async () =>
   assert.equal(calls[1]?.path, "/v1/sandbox/sb-2/pause");
   assert.equal(calls[2]?.path, "/v1/sandbox/sb-3/stop");
   assert.equal(calls[3]?.path, "/v1/sandbox/sb-4/start");
-  assert.equal(calls[4]?.path, "/v1/sandbox/sb-4/");
-  assert.equal(calls[5]?.path, "/v1/sandbox/sb-5/");
+  assert.equal(calls[4]?.path, "/v1/sandbox/sb-5/");
 });
 
 test("sandboxes list accepts stopped lifecycle filters", async () => {
