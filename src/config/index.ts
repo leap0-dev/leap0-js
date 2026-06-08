@@ -17,7 +17,9 @@ import { trimSlash } from "@/core/utils.js";
 
 function readEnv(name: string): string | undefined {
   if (typeof process !== "undefined" && process.env) {
-    return process.env[name];
+    const value = process.env[name];
+    // Treat empty strings as unset so defaults are applied.
+    return value === undefined || value === "" ? undefined : value;
   }
   return undefined;
 }
